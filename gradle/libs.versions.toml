@@ -55,6 +55,9 @@ accompanistPermissions      = "0.36.0"
 # Security
 securityCrypto              = "1.1.0-alpha06"
 
+# PDF
+pdfboxAndroid               = "2.0.27.0"
+
 # Testing
 junit                       = "4.13.2"
 androidxTestExt             = "1.2.1"
@@ -126,6 +129,9 @@ accompanist-permissions                 = { group = "com.google.accompanist",   
 
 # Security
 androidx-security-crypto                = { group = "androidx.security",        name = "security-crypto",                   version.ref = "securityCrypto" }
+
+# PDF
+pdfbox-android                          = { group = "com.tom-roush",            name = "pdfbox-android",                    version.ref = "pdfboxAndroid" }
 
 # Testing
 junit                                   = { group = "junit",                    name = "junit",                             version.ref = "junit" }

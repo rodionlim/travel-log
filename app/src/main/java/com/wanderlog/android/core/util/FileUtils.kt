@@ -6,6 +6,10 @@ import android.graphics.BitmapFactory
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -21,8 +25,36 @@ object FileUtils {
         context.contentResolver.openInputStream(uri)!!.use { it.bufferedReader().readText() }
     }
 
+    suspend fun readPdfText(context: Context, uri: Uri, maxPages: Int = 10): String =
+        withContext(Dispatchers.IO) {
+            PDFBoxResourceLoader.init(context.applicationContext)
+            context.contentResolver.openInputStream(uri)!!.use { inputStream ->
+                PDDocument.load(inputStream).use { document ->
+                    val lastPage = minOf(document.numberOfPages, maxPages)
+                    if (lastPage <= 0) return@withContext ""
+
+                    val stripper = PDFTextStripper().apply {
+                        startPage = 1
+                        endPage = lastPage
+                    }
+                    stripper.getText(document).trim()
+                }
+            }
+        }
+
     fun getMimeType(context: Context, uri: Uri): String? =
         context.contentResolver.getType(uri)
+
+    fun getDisplayName(context: Context, uri: Uri): String? {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0 && cursor.moveToFirst()) {
+                    return cursor.getString(nameIndex)
+                }
+            }
+        return uri.lastPathSegment?.substringAfterLast('/')
+    }
 
     suspend fun compressImageToJpeg(bytes: ByteArray, maxSizeBytes: Int = 1_048_576): ByteArray =
         withContext(Dispatchers.IO) {

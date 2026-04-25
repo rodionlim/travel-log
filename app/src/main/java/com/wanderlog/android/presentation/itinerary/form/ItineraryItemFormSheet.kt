@@ -23,12 +23,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wanderlog.android.domain.model.ItineraryItem
 import com.wanderlog.android.domain.model.ItineraryItemType
+import com.wanderlog.android.domain.model.Place
 
 @Composable
 fun ItineraryItemFormSheet(
     tripId: String,
     dayId: String,
     editingItem: ItineraryItem?,
+    selectedPlace: Place? = null,
+    onSelectedPlaceApplied: () -> Unit = {},
     onDismiss: () -> Unit,
     onDeleteRequested: (() -> Unit)? = null,
     onPlaceSearchRequested: () -> Unit,
@@ -42,6 +45,13 @@ fun ItineraryItemFormSheet(
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onDismiss()
+    }
+
+    LaunchedEffect(selectedPlace) {
+        if (selectedPlace != null) {
+            viewModel.onPlaceSelected(selectedPlace)
+            onSelectedPlaceApplied()
+        }
     }
 
     Column(

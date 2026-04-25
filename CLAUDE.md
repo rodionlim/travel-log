@@ -40,7 +40,7 @@ Run these from Windows (Android Studio terminal or PowerShell), or from WSL if t
 
 1. Copy `local.properties.template` → `local.properties` and set `sdk.dir` to your Android SDK path.
 2. Set `MAPS_API_KEY` in `local.properties` (injected into the manifest via `manifestPlaceholders`).
-3. In the running app → Settings screen, enter your **OpenAI API key**, optionally the Google Maps key at runtime, and choose separate OpenAI models for general trip generation vs booking image/PDF parsing (stored in `EncryptedSharedPreferences`).
+3. In the running app → Settings screen, enter your **OpenAI API key** and choose separate OpenAI models for general trip generation vs booking image/PDF parsing (stored in `EncryptedSharedPreferences`). The runtime Google Maps key helps Places-based search, but `MapScreen` still requires `MAPS_API_KEY` in `local.properties` because the Android Maps SDK reads the manifest key at app startup.
 
 ## Architecture
 
@@ -73,29 +73,29 @@ presentation/      — one sub-package per screen; ViewModels use SavedStateHand
 
 5 tables: `trips`, `trip_days`, `itinerary_items`, `expenses`, `packing_items`.  
 All FKs cascade-delete. Dates stored as ISO-8601 text via `RoomConverters`.  
-`WanderlogDatabase` version = 1. Schema exported to `app/schemas/`.
+`WanderlogDatabase` version = 2. Schema exported to `app/schemas/`.
 
 ## OpenAI Integration
 
 `AiRepositoryImpl` uses `POST /v1/chat/completions` with `response_format = { "type": "json_object" }` and runtime-configurable model selection from Settings.
 
-- **Itinerary generation**: system + user text prompt → JSON with day/item structure → `TripDay` + `ItineraryItem` lists, using the user-selected general OpenAI model.
-- **File parsing**: message `content` is an array of `ContentPartDto` (text or image). PDFs are rasterised page-by-page via `android.graphics.pdf.PdfRenderer` → JPEG → base64 in `ParseFileUseCase`. Parsing uses a separate user-selectable parsing model, and image/PDF requests fall back to a vision-safe model when needed.
+- **Itinerary generation**: system + user text prompt → JSON with day/item structure → `TripDay` + `ItineraryItem` lists, using the user-selected general OpenAI model. The flow supports full-trip generation and a multi-day additive update where AI chooses which existing days to extend.
+- **File parsing**: message `content` is an array of `ContentPartDto` (text or image). `ParseFileUseCase` can combine one or more uploaded files into a single parsing request. PDFs default to text extraction via `pdfbox-android`, with an import-time checkbox that can rasterise them page-by-page via `android.graphics.pdf.PdfRenderer` → JPEG → base64 for scanned or layout-heavy documents. Parsing uses a separate user-selectable parsing model, and image/PDF requests fall back to a vision-safe model when needed.
 
 The API key is injected per-request by `ApiKeyInterceptor` reading from `EncryptedSharedPreferences`.
 
 ## Google Maps & Places
 
-`MapScreen` uses `maps-compose` (`GoogleMap` composable). Markers for each `ItineraryItem` with lat/lng. Polyline connects all stops in order.
+`MapScreen` uses `maps-compose` (`GoogleMap` composable). Markers for each `ItineraryItem` with lat/lng. Polyline connects all stops in order. The map view depends on the manifest `MAPS_API_KEY`; the runtime Settings key is only used for Places-based search/fetch flows.
 
 `PlacesDataSource` wraps `PlacesClient.findAutocompletePredictions` (autocomplete), `fetchPlace` (details), and place photo fetching for trip cover images. Destination cover photos are cached locally under app files storage. `PlaceSearchViewModel` debounces the query by 300 ms.
 
 ## File Import Flow
 
-`ParseFileUseCase` (AI use case) → branch by MIME type → `ContentPartDto` list → `AiRepositoryImpl.parseFile()` → `ParsedBooking` → `FileImportViewModel` builds itinerary items and shows an editable review dialog → user confirms → `ItineraryRepository.insertItems()`.
+`ParseFileUseCase` (AI use case) → branch by MIME type across one or more uploaded files, with PDFs defaulting to text extraction and optional image rasterisation → combined `ContentPartDto` list → `AiRepositoryImpl.parseFile()` → `ParsedBooking` → `FileImportViewModel` builds itinerary items and shows an editable review dialog → user confirms → `ItineraryRepository.insertItems()`.
 
 - Imported items are assigned to matching `TripDay`s based on parsed dates when possible.
-- For file-based imports, the original source document is stored locally and linked back to created itinerary items.
+- For file-based imports, the original source documents are stored locally and imported items keep an attachment link back to the upload.
 - Flight imports can also create `TRANSPORT` expenses automatically from parsed ticket totals.
 
 ## Screens & Navigation

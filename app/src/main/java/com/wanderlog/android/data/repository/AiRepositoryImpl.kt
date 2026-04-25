@@ -32,6 +32,14 @@ class AiRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : AiRepository {
 
+    private val completionTokensModels = listOf(
+        "gpt-5",
+        "o1",
+        "o3",
+        "o4",
+        "codex"
+    )
+
     private val chatCompletionsVisionModels = setOf(
         "gpt-4o",
         "gpt-4o-mini",
@@ -50,15 +58,92 @@ class AiRepositoryImpl @Inject constructor(
         startDate: String,
         endDate: String,
         preferences: String,
-        travellers: Int
+        travellers: Int,
+        updatePrompt: String?,
+        existingDays: List<TripDay>
     ): List<TripDay> {
         val systemPrompt = """
             You are a travel planning assistant. Always respond with valid JSON only.
             Never include markdown code blocks or any text outside the JSON.
         """.trimIndent()
 
-        val userPrompt = """
-            Generate a day-by-day travel itinerary. Output ONLY valid JSON with this schema:
+        val userPrompt = when {
+            existingDays.isNotEmpty() && !updatePrompt.isNullOrBlank() -> {
+                buildMultiDayUpdatePrompt(
+                    destination = destination,
+                    preferences = preferences,
+                    travellers = travellers,
+                    availableDays = existingDays,
+                    updatePrompt = updatePrompt
+                )
+            }
+
+            else -> {
+                """
+                    Generate a day-by-day travel itinerary. Output ONLY valid JSON with this schema:
+                    {
+                      "days": [
+                        {
+                          "day_number": 1,
+                          "date": "YYYY-MM-DD",
+                          "items": [
+                            {
+                              "title": "...",
+                              "type": "PLACE|HOTEL|ACTIVITY|TRANSPORT|FLIGHT|NOTE",
+                              "location": "...",
+                              "start_time": "HH:mm",
+                              "end_time": "HH:mm",
+                              "notes": "..."
+                            }
+                          ]
+                        }
+                      ]
+                    }
+
+                    Trip details:
+                    - Destination: $destination
+                    - Start date: $startDate
+                    - End date: $endDate
+                    - Travel style: $preferences
+                    - Number of travellers: $travellers
+                """.trimIndent()
+            }
+        }
+
+        val request = buildChatCompletionRequest(
+            model = SettingsViewModel.getOpenAiModel(context),
+            messages = listOf(
+                MessageDto("system", systemPrompt),
+                MessageDto("user", userPrompt)
+            ),
+            responseFormat = ResponseFormatDto("json_object")
+        )
+
+        val response = chatCompletionOrThrow(request, "generate itinerary")
+        val json = response.choices.first().message.content
+        return parseItineraryJson(json, destination)
+    }
+
+    private fun buildMultiDayUpdatePrompt(
+        destination: String,
+        preferences: String,
+        travellers: Int,
+        availableDays: List<TripDay>,
+        updatePrompt: String
+    ): String {
+        val daysText = availableDays
+            .sortedBy { it.dayNumber }
+            .joinToString("\n\n") { day ->
+                """
+                Day ${day.dayNumber} - ${day.date}
+                Existing items:
+                ${formatExistingItems(day.items)}
+                """.trimIndent()
+            }
+
+        return """
+            Update an existing itinerary by choosing which existing days should receive new items.
+            Output ONLY valid JSON using this schema:
             {
               "days": [
                 {
@@ -78,26 +163,45 @@ class AiRepositoryImpl @Inject constructor(
               ]
             }
 
+            Important rules:
+            - Choose only from the existing trip days listed below.
+            - Return only the subset of days that should receive new items.
+            - Return only new itinerary items to add; do not repeat unchanged existing items.
+            - Use the provided day date and day number exactly.
+            - Spread additions across multiple days when that fits the request better than forcing everything onto one day.
+            - Avoid obvious duplicates with existing items.
+            - Choose realistic visit times and durations when the user does not specify them.
+
             Trip details:
             - Destination: $destination
-            - Start date: $startDate
-            - End date: $endDate
             - Travel style: $preferences
             - Number of travellers: $travellers
+
+            Existing trip days:
+            $daysText
+
+            User request:
+            $updatePrompt
         """.trimIndent()
+    }
 
-        val request = ChatCompletionRequest(
-            model = SettingsViewModel.getOpenAiModel(context),
-            messages = listOf(
-                MessageDto("system", systemPrompt),
-                MessageDto("user", userPrompt)
-            ),
-            responseFormat = ResponseFormatDto("json_object")
-        )
-
-        val response = chatCompletionOrThrow(request, "generate itinerary")
-        val json = response.choices.first().message.content
-        return parseItineraryJson(json, destination)
+    private fun formatExistingItems(items: List<ItineraryItem>): String {
+        return items
+            .sortedBy { it.sortOrder }
+            .joinToString("\n") { item ->
+                buildString {
+                    append("- ")
+                    item.startTime?.takeIf { it.isNotBlank() }?.let {
+                        append("[$it")
+                        item.endTime?.takeIf { value -> value.isNotBlank() }?.let { end -> append("-$end") }
+                        append("] ")
+                    }
+                    append(item.title)
+                    item.place?.name?.takeIf { it.isNotBlank() }?.let { append(" @ $it") }
+                    item.notes?.takeIf { it.isNotBlank() }?.let { append(" — $it") }
+                }
+            }
+            .ifBlank { "- No items yet for this day." }
     }
 
     override suspend fun parseFile(contentParts: List<ContentPartDto>, hint: DocumentHint?): ParsedBooking {
@@ -121,7 +225,7 @@ class AiRepositoryImpl @Inject constructor(
         val selectedParsingModel = SettingsViewModel.getOpenAiParsingModel(context)
         val requestModel = pickParsingModel(selectedModel, selectedParsingModel, contentParts)
         val allParts: List<Any> = listOf(parsePrompt) + contentParts
-        val request = ChatCompletionRequest(
+        val request = buildChatCompletionRequest(
             model = requestModel,
             messages = listOf(
                 MessageDto("system", systemPrompt),
@@ -148,6 +252,26 @@ class AiRepositoryImpl @Inject constructor(
             return selectedModel
         }
         return selectedParsingModel.takeIf { it in chatCompletionsVisionModels } ?: "gpt-4o-mini"
+    }
+
+    private fun buildChatCompletionRequest(
+        model: String,
+        messages: List<MessageDto>,
+        responseFormat: ResponseFormatDto? = null
+    ): ChatCompletionRequest {
+        val normalizedModel = model.trim().lowercase()
+        val usesCompletionTokens = completionTokensModels.any { tokenModel ->
+            normalizedModel.startsWith(tokenModel) || normalizedModel.contains(tokenModel)
+        }
+
+        return ChatCompletionRequest(
+            model = model,
+            messages = messages,
+            responseFormat = responseFormat,
+            maxTokens = if (usesCompletionTokens) null else 4096,
+            maxCompletionTokens = if (usesCompletionTokens) 4096 else null,
+            temperature = 0.3
+        )
     }
 
     private suspend fun chatCompletionOrThrow(

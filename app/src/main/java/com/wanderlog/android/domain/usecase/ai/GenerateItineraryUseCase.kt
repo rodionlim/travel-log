@@ -11,6 +11,16 @@ class GenerateItineraryUseCase @Inject constructor(private val repo: AiRepositor
         startDate: String,
         endDate: String,
         preferences: String = "balanced mix of culture and food",
-        travellers: Int = 1
-    ): List<TripDay> = repo.generateItinerary(destination, startDate, endDate, preferences, travellers)
+        travellers: Int = 1,
+        updatePrompt: String? = null,
+        existingDays: List<TripDay> = emptyList()
+    ): List<TripDay> = repo.generateItinerary(
+        destination = destination,
+        startDate = startDate,
+        endDate = endDate,
+        preferences = preferences,
+        travellers = travellers,
+        updatePrompt = updatePrompt,
+        existingDays = existingDays
+    )
 }

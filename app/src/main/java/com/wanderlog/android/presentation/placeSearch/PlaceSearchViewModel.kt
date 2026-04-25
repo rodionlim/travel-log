@@ -73,4 +73,9 @@ class PlaceSearchViewModel @Inject constructor(
     }
 
     fun clearSelection() = _state.update { it.copy(selectedPlace = null) }
+
+    fun reset() {
+        _state.value = PlaceSearchState()
+        queryFlow.value = ""
+    }
 }

@@ -15,6 +15,7 @@ import com.wanderlog.android.domain.model.Trip
 import com.wanderlog.android.domain.model.TripDay
 import com.wanderlog.android.domain.repository.AttachmentRepository
 import com.wanderlog.android.domain.repository.ItineraryRepository
+import com.wanderlog.android.domain.repository.PlacesRepository
 import com.wanderlog.android.domain.repository.TripRepository
 import com.wanderlog.android.domain.usecase.ai.ParseFileUseCase
 import com.wanderlog.android.domain.usecase.ai.ParseTextUseCase
@@ -54,10 +55,11 @@ class FileImportViewModel @Inject constructor(
     private val tripRepository: TripRepository,
     private val attachmentRepository: AttachmentRepository,
     private val itineraryRepository: ItineraryRepository,
+    private val placesRepository: PlacesRepository,
     private val addExpense: AddExpenseUseCase
 ) : ViewModel() {
 
-    private var pendingSourceUri: Uri? = null
+    private var pendingSourceUris: List<Uri> = emptyList()
 
     private val _step = MutableStateFlow<FileImportStep>(FileImportStep.Idle)
     val step: StateFlow<FileImportStep> = _step.asStateFlow()
@@ -65,18 +67,33 @@ class FileImportViewModel @Inject constructor(
     val trips: StateFlow<List<Trip>> = tripRepository.getAllTrips()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun parseUri(uri: Uri, tripId: String, hint: DocumentHint? = null) {
+    fun parseUri(
+        uri: Uri,
+        tripId: String,
+        hint: DocumentHint? = null,
+        rasterizePdfAsImages: Boolean = false
+    ) {
+        parseUris(listOf(uri), tripId, hint, rasterizePdfAsImages)
+    }
+
+    fun parseUris(
+        uris: List<Uri>,
+        tripId: String,
+        hint: DocumentHint? = null,
+        rasterizePdfAsImages: Boolean = false
+    ) {
+        if (uris.isEmpty()) return
         _step.value = FileImportStep.Parsing
         viewModelScope.launch {
-            runCatching { parseFile(uri, hint) }
+            runCatching { parseFile(uris, hint, rasterizePdfAsImages) }
                 .onSuccess { booking ->
                     val days = tripRepository.getDaysForTrip(tripId)
-                    pendingSourceUri = uri
+                    pendingSourceUris = uris
                     val items = bookingToItems(booking, tripId, days)
                     _step.value = FileImportStep.Review(booking, items, days, storesLocalAttachment = true)
                 }
                 .onFailure { e ->
-                    pendingSourceUri = null
+                    pendingSourceUris = emptyList()
                     _step.value = FileImportStep.Error(e.message ?: "Parse failed")
                 }
         }
@@ -88,12 +105,12 @@ class FileImportViewModel @Inject constructor(
             runCatching { parseText.invoke(text, hint) }
                 .onSuccess { booking ->
                     val days = tripRepository.getDaysForTrip(tripId)
-                    pendingSourceUri = null
+                    pendingSourceUris = emptyList()
                     val items = bookingToItems(booking, tripId, days)
                     _step.value = FileImportStep.Review(booking, items, days, storesLocalAttachment = false)
                 }
                 .onFailure { e ->
-                    pendingSourceUri = null
+                    pendingSourceUris = emptyList()
                     _step.value = FileImportStep.Error(e.message ?: "Parse failed")
                 }
         }
@@ -104,9 +121,17 @@ class FileImportViewModel @Inject constructor(
             runCatching {
                 val review = _step.value as? FileImportStep.Review
                 val trip = tripRepository.getTripById(tripId)
-                val attachmentReference = pendingSourceUri
-                    ?.let { uri -> attachmentRepository.importFromUri(tripId, uri, "Imported booking") }
-                    ?.let { attachment -> "attachment://${attachment.id}" }
+                val importedAttachments = pendingSourceUris.mapIndexed { index, uri ->
+                    val label = if (pendingSourceUris.size == 1) {
+                        "Imported booking"
+                    } else {
+                        "Imported booking ${index + 1}"
+                    }
+                    attachmentRepository.importFromUri(tripId, uri, label)
+                }
+                val attachmentReference = importedAttachments.firstOrNull()?.let { attachment ->
+                    "attachment://${attachment.id}"
+                }
 
                 val linkedItems = if (attachmentReference == null) items else {
                     items.map { item ->
@@ -121,7 +146,7 @@ class FileImportViewModel @Inject constructor(
                     ?.forEach { expense -> addExpense(expense) }
             }
                 .onSuccess {
-                    pendingSourceUri = null
+                    pendingSourceUris = emptyList()
                     _step.value = FileImportStep.Done
                 }
                 .onFailure { e ->
@@ -142,12 +167,13 @@ class FileImportViewModel @Inject constructor(
     }
 
     fun reset() {
-        pendingSourceUri = null
+        pendingSourceUris = emptyList()
         _step.value = FileImportStep.Idle
     }
 
-    private fun bookingToItems(booking: ParsedBooking, tripId: String, days: List<TripDay>): List<ItineraryItem> {
+    private suspend fun bookingToItems(booking: ParsedBooking, tripId: String, days: List<TripDay>): List<ItineraryItem> {
         val defaultDayId = days.firstOrNull()?.id ?: ""
+        val placeCache = mutableMapOf<String, Place?>()
         val result = mutableListOf<ItineraryItem>()
         booking.flights.forEach { f ->
             result.add(ItineraryItem(
@@ -156,6 +182,7 @@ class FileImportViewModel @Inject constructor(
                 tripId = tripId,
                 title = buildFlightTitle(f),
                 itemType = ItineraryItemType.FLIGHT,
+                place = buildFlightPlace(f, placeCache),
                 startTime = f.departureDateTime,
                 endTime = f.arrivalDateTime,
                 notes = buildFlightNotes(f),
@@ -217,6 +244,45 @@ class FileImportViewModel @Inject constructor(
         return details.takeIf { it.isNotEmpty() }?.joinToString("\n")
     }
 
+    private suspend fun buildFlightPlace(
+        flight: ParsedFlight,
+        placeCache: MutableMap<String, Place?>
+    ): Place? {
+        val destination = flight.destination.trim()
+        val origin = flight.origin.trim()
+        val inferredName = destination.ifBlank { origin }
+        if (inferredName.isBlank()) return null
+
+        val queryCandidates = buildList {
+            if (!destination.isBlank()) {
+                if (!destination.contains("airport", ignoreCase = true)) add("$destination airport")
+                add(destination)
+            }
+            if (origin.isNotBlank() && origin != destination) {
+                if (!origin.contains("airport", ignoreCase = true)) add("$origin airport")
+                add(origin)
+            }
+        }.distinct()
+
+        for (query in queryCandidates) {
+            if (query.isBlank()) continue
+            val cached = placeCache[query]
+            if (cached != null || placeCache.containsKey(query)) {
+                return cached ?: Place(name = inferredName)
+            }
+
+            val resolved = runCatching {
+                val match = placesRepository.searchPlaces(query, null).firstOrNull() ?: return@runCatching null
+                match.placeId?.let { placesRepository.fetchPlaceDetails(it) } ?: match
+            }.getOrNull()
+
+            placeCache[query] = resolved
+            if (resolved != null) return resolved
+        }
+
+        return Place(name = inferredName)
+    }
+
     private fun buildFlightEndpointLabel(
         label: String,
         airport: String,
@@ -241,42 +307,90 @@ class FileImportViewModel @Inject constructor(
         tripId: String,
         fallbackCurrencyCode: String
     ): List<Expense> {
-        return booking.flights
-            .distinctBy { flight ->
-                listOf(
-                    flight.bookingRef.orEmpty(),
-                    flight.price.orEmpty(),
-                    flight.departureDateTime.orEmpty(),
-                    flight.flightNumber.orEmpty()
-                ).joinToString("|")
+        val pricedFlights = booking.flights.mapNotNull { flight ->
+            val parsedAmount = parseImportedAmount(flight.price) ?: return@mapNotNull null
+            val currencyCode = inferCurrencyCode(flight.price, fallbackCurrencyCode)
+            ImportedFlightExpenseCandidate(
+                flight = flight,
+                amount = parsedAmount,
+                currencyCode = currencyCode
+            )
+        }
+
+        val repeatedUnreferencedTotals = pricedFlights
+            .filter { it.flight.bookingRef.isNullOrBlank() }
+            .groupingBy { it.amount to it.currencyCode }
+            .eachCount()
+
+        return pricedFlights
+            .groupBy { candidate ->
+                val bookingRef = candidate.flight.bookingRef?.trim().orEmpty()
+                when {
+                    bookingRef.isNotBlank() -> "booking:$bookingRef|${candidate.amount}|${candidate.currencyCode}"
+                    repeatedUnreferencedTotals[candidate.amount to candidate.currencyCode].orZero() > 1 -> {
+                        // Some ticket PDFs repeat the same booking total on every segment; only import that total once.
+                        "shared-total:${candidate.amount}|${candidate.currencyCode}"
+                    }
+                    else -> listOf(
+                        candidate.flight.flightNumber.orEmpty(),
+                        candidate.flight.departureDateTime.orEmpty(),
+                        candidate.flight.origin.trim(),
+                        candidate.flight.destination.trim(),
+                        candidate.amount.toString(),
+                        candidate.currencyCode
+                    ).joinToString("|")
+                }
             }
-            .mapNotNull { flight ->
-                val parsedAmount = parseImportedAmount(flight.price) ?: return@mapNotNull null
-                val expenseDate = parseImportedDate(flight.departureDateTime ?: flight.arrivalDateTime)
+            .values
+            .map { candidates ->
+                val representative = candidates.first()
+                val expenseDate = parseImportedDate(
+                    representative.flight.departureDateTime ?: representative.flight.arrivalDateTime
+                )
                 Expense(
                     id = UUID.randomUUID().toString(),
                     tripId = tripId,
-                    title = buildFlightExpenseTitle(flight),
-                    amount = parsedAmount,
-                    currencyCode = inferCurrencyCode(flight.price, fallbackCurrencyCode),
+                    title = buildFlightExpenseTitle(candidates.map { it.flight }),
+                    amount = representative.amount,
+                    currencyCode = representative.currencyCode,
                     category = ExpenseCategory.TRANSPORT,
                     date = expenseDate,
                     notes = listOfNotNull(
-                        flight.bookingRef?.let { "Booking reference: $it" },
-                        flight.price?.let { "Imported total: $it" }
+                        representative.flight.bookingRef?.let { "Booking reference: $it" },
+                        representative.flight.price?.let { "Imported total: $it" },
+                        candidates.takeIf { it.size > 1 }?.let { "Imported once for ${it.size} flight segments" }
                     ).takeIf { it.isNotEmpty() }?.joinToString("\n")
                 )
             }
     }
 
-    private fun buildFlightExpenseTitle(flight: ParsedFlight): String {
-        val route = listOf(flight.origin, flight.destination)
+    private fun buildFlightExpenseTitle(flights: List<ParsedFlight>): String {
+        val representative = flights.first()
+        val label = flights
+            .mapNotNull { listOfNotNull(it.airline, it.flightNumber).joinToString(" ").ifBlank { null } }
+            .distinct()
+            .firstOrNull()
+            ?: if (flights.size > 1) "Flight tickets" else "Flight ticket"
+
+        val routes = flights
+            .map { flight ->
+                listOf(flight.origin, flight.destination)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" -> ")
+            }
             .filter { it.isNotBlank() }
-            .joinToString(" -> ")
-        val label = listOfNotNull(flight.airline, flight.flightNumber)
-            .joinToString(" ")
-            .ifBlank { "Flight ticket" }
-        return if (route.isBlank()) label else "$label ($route)"
+            .distinct()
+
+        val routeSummary = when {
+            routes.isEmpty() -> listOf(representative.origin, representative.destination)
+                .filter { it.isNotBlank() }
+                .joinToString(" -> ")
+                .ifBlank { null }
+            routes.size == 1 -> routes.first()
+            else -> routes.joinToString(" / ")
+        }
+
+        return routeSummary?.let { "$label ($it)" } ?: label
     }
 
     private fun parseImportedAmount(priceText: String?): Double? {
@@ -315,3 +429,11 @@ class FileImportViewModel @Inject constructor(
         private val CURRENCY_CODE_REGEX = Regex("""\b[A-Z]{3}\b""")
     }
 }
+
+private data class ImportedFlightExpenseCandidate(
+    val flight: ParsedFlight,
+    val amount: Double,
+    val currencyCode: String
+)
+
+private fun Int?.orZero(): Int = this ?: 0

@@ -33,6 +33,7 @@ fun PlaceSearchSheet(
     LaunchedEffect(state.selectedPlace) {
         if (state.selectedPlace != null) {
             onPlaceSelected?.invoke(state.selectedPlace!!)
+            viewModel.clearSelection()
             onDismiss()
         }
     }
@@ -65,5 +66,9 @@ fun PlaceSearchSheet(
                 HorizontalDivider()
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.clearSelection()
     }
 }

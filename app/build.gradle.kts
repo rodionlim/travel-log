@@ -105,6 +105,9 @@ dependencies {
     // Secure key storage
     implementation(libs.androidx.security.crypto)
 
+    // PDF text extraction
+    implementation(libs.pdfbox.android)
+
     // Tests
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

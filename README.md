@@ -6,9 +6,9 @@ An offline-first Android travel planner. Plan trips, build day-by-day itinerarie
 
 - **Trip management** — create and manage trips with destination, dates, duration, and automatic destination cover images
 - **Itinerary builder** — day-by-day items with drag-to-reorder and swipe-to-delete
-- **AI itinerary generation** — describe your trip and get a full itinerary or update existing plans
+- **AI itinerary generation** — describe your trip and get a full itinerary, or let AI choose the best existing days to update
 - **Configurable AI models** — choose separate OpenAI models for itinerary generation and booking image/PDF parsing
-- **File import** — share booking emails or upload PDFs/images; AI parses them into itinerary items, lets you review/edit extracted details, stores the source document locally, and links it to imported entries
+- **File import** — share booking emails or upload one or more PDFs/images/text files; PDFs default to text extraction with an optional rasterize-to-images mode, AI parses them into itinerary items, lets you review/edit extracted details, stores the source documents locally, and links imported entries back to the upload
 - **Attachments vault** — attach markdown notes and files to any trip, with local storage and in-app preview for images, text, and PDFs
 - **Map view** — see all stops on a map with a connecting polyline
 - **Budget tracker** — log and categorise trip expenses, including auto-created transport expenses from imported flight totals
@@ -28,7 +28,7 @@ Kotlin · Jetpack Compose · MVVM · Clean Architecture · Hilt · Room · Retro
    MAPS_API_KEY=<your Google Maps API key>
    ```
 3. At runtime, open **Settings** in the app and enter your **OpenAI API key**
-4. In **Settings**, you can also choose separate OpenAI models for general trip generation and booking image/PDF parsing, and optionally override the Google Maps key on-device
+4. In **Settings**, you can also choose separate OpenAI models for general trip generation and booking image/PDF parsing. The runtime Google Maps key helps Places-based search, but the map screen itself still requires `MAPS_API_KEY` in `local.properties` because the Android Maps SDK reads its key from the manifest.
 
 ## Build & Run
 

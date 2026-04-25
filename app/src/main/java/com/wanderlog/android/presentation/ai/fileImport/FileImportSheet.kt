@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ fun FileImportSheet(
 ) {
     val step by viewModel.step.collectAsState()
     var selectedHint by remember { mutableStateOf<DocumentHint?>(null) }
+    var rasterizePdfAsImages by remember { mutableStateOf(false) }
 
     LaunchedEffect(step) {
         if (step is FileImportStep.Done) onDismiss()
@@ -46,11 +48,21 @@ fun FileImportSheet(
 
     val pdfLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? -> uri?.let { viewModel.parseUri(it, tripId, selectedHint) } }
+    ) { uri: Uri? ->
+        uri?.let { viewModel.parseUri(it, tripId, selectedHint, rasterizePdfAsImages) }
+    }
 
     val imageLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? -> uri?.let { viewModel.parseUri(it, tripId, selectedHint) } }
+
+    val multiFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.parseUris(uris, tripId, selectedHint, rasterizePdfAsImages)
+        }
+    }
 
     val textLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -71,6 +83,32 @@ fun FileImportSheet(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text("Choose a file:")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = rasterizePdfAsImages,
+                        onCheckedChange = { rasterizePdfAsImages = it }
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Rasterize PDFs to images")
+                        Text(
+                            "Off by default: PDFs are parsed as extracted text. Turn this on for scanned or layout-heavy PDFs.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                OutlinedButton(
+                    onClick = {
+                        multiFileLauncher.launch(
+                            arrayOf("application/pdf", "text/plain", "text/csv", "image/*")
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Import Multiple Files") }
                 OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
                     modifier = Modifier.fillMaxWidth()) { Text("Import PDF") }
                 OutlinedButton(onClick = {
@@ -79,6 +117,11 @@ fun FileImportSheet(
                 }, modifier = Modifier.fillMaxWidth()) { Text("Import Image / Screenshot") }
                 OutlinedButton(onClick = { textLauncher.launch(arrayOf("text/plain", "text/csv")) },
                     modifier = Modifier.fillMaxWidth()) { Text("Import Text / CSV") }
+                Text(
+                    "Use multiple files when one booking is split across PDFs, screenshots, or text exports.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             FileImportStep.Parsing -> {

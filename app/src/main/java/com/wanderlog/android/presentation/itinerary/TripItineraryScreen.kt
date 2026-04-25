@@ -55,6 +55,7 @@ import com.wanderlog.android.core.ui.component.ConfirmDialog
 import com.wanderlog.android.core.ui.component.WanderTopBar
 import com.wanderlog.android.core.ui.component.destinationVisualFor
 import com.wanderlog.android.domain.model.ItineraryItem
+import com.wanderlog.android.domain.model.Place
 import com.wanderlog.android.presentation.ai.fileImport.FileImportSheet
 import com.wanderlog.android.presentation.itinerary.component.ItineraryItemCard
 import com.wanderlog.android.presentation.itinerary.form.ItineraryItemFormSheet
@@ -82,6 +83,7 @@ fun TripItineraryScreen(
     var showItemForm by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<ItineraryItem?>(null) }
     var showPlaceSearch by remember { mutableStateOf(false) }
+    var selectedPlaceForForm by remember { mutableStateOf<Place?>(null) }
     var showFileImport by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ItineraryItem?>(null) }
 
@@ -265,6 +267,8 @@ fun TripItineraryScreen(
                     tripId = tripId,
                     dayId = selectedDay.id,
                     editingItem = editingItem,
+                    selectedPlace = selectedPlaceForForm,
+                    onSelectedPlaceApplied = { selectedPlaceForForm = null },
                     onDismiss = { showItemForm = false },
                     onDeleteRequested = editingItem?.let { item ->
                         {
@@ -284,7 +288,13 @@ fun TripItineraryScreen(
             onDismissRequest = { showPlaceSearch = false },
             sheetState = sheetState
         ) {
-            PlaceSearchSheet(onDismiss = { showPlaceSearch = false })
+            PlaceSearchSheet(
+                onDismiss = { showPlaceSearch = false },
+                onPlaceSelected = { place ->
+                    selectedPlaceForForm = place
+                    showPlaceSearch = false
+                }
+            )
         }
     }
 

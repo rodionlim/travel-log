@@ -1,5 +1,7 @@
 package com.wanderlog.android.presentation.map
 
+import android.content.Context
+import android.content.pm.PackageManager
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,6 +9,7 @@ import com.wanderlog.android.domain.model.ItineraryItem
 import com.wanderlog.android.domain.repository.ItineraryRepository
 import com.wanderlog.android.presentation.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,13 +19,15 @@ import javax.inject.Inject
 
 data class MapUiState(
     val items: List<ItineraryItem> = emptyList(),
-    val selectedItemId: String? = null
+    val selectedItemId: String? = null,
+    val mapError: String? = null
 )
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val itineraryRepository: ItineraryRepository
+    private val itineraryRepository: ItineraryRepository,
+    @ApplicationContext context: Context
 ) : ViewModel() {
 
     private val tripId = savedStateHandle.get<String>(Screen.Map.ARG_TRIP_ID)!!
@@ -32,6 +37,7 @@ class MapViewModel @Inject constructor(
     val state: StateFlow<MapUiState> = _state.asStateFlow()
 
     init {
+        _state.update { it.copy(mapError = resolveMapError(context)) }
         viewModelScope.launch {
             val flow = if (dayId != null)
                 itineraryRepository.getItemsForDay(dayId) // dayId specific
@@ -46,4 +52,21 @@ class MapViewModel @Inject constructor(
     }
 
     fun selectItem(id: String?) = _state.update { it.copy(selectedItemId = id) }
+
+    private fun resolveMapError(context: Context): String? {
+        val manifestKey = runCatching {
+            val appInfo = context.packageManager.getApplicationInfo(
+                context.packageName,
+                PackageManager.GET_META_DATA
+            )
+            appInfo.metaData?.getString("com.google.android.geo.API_KEY").orEmpty().trim()
+        }.getOrDefault("")
+
+        return when {
+            manifestKey.isBlank() || manifestKey.contains("\${") -> {
+                "Google Maps needs MAPS_API_KEY in local.properties and an app rebuild. The runtime key in Settings helps place search, but the map screen uses the manifest SDK key."
+            }
+            else -> null
+        }
+    }
 }

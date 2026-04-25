@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,6 +46,19 @@ fun AiGenerateScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = state.mode == AiGenerateMode.FULL_TRIP,
+                            onClick = { viewModel.onModeChange(AiGenerateMode.FULL_TRIP) },
+                            label = { Text("Full trip") }
+                        )
+                        FilterChip(
+                            selected = state.mode == AiGenerateMode.UPDATE_MULTIPLE_DAYS,
+                            onClick = { viewModel.onModeChange(AiGenerateMode.UPDATE_MULTIPLE_DAYS) },
+                            label = { Text("Update days") }
+                        )
+                    }
+
                     OutlinedTextField(
                         value = state.destination,
                         onValueChange = viewModel::onDestinationChange,
@@ -54,13 +66,29 @@ fun AiGenerateScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
                     OutlinedTextField(
                         value = state.preferences,
                         onValueChange = viewModel::onPreferencesChange,
-                        label = { Text("Travel style / preferences") },
+                        label = {
+                            Text(
+                                if (state.mode == AiGenerateMode.UPDATE_MULTIPLE_DAYS) {
+                                    "What should change? AI can choose the best days"
+                                } else {
+                                    "Travel style / preferences"
+                                }
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2
                     )
+                    if (state.mode == AiGenerateMode.UPDATE_MULTIPLE_DAYS) {
+                        Text(
+                            "AI can choose whichever existing days fit your request best, and will only suggest new items for those days.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     OutlinedTextField(
                         value = state.travellers,
                         onValueChange = viewModel::onTravellersChange,
@@ -74,16 +102,27 @@ fun AiGenerateScreen(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !state.isLoading
                     ) {
-                        if (state.isLoading) CircularProgressIndicator()
-                        else Text(if (state.generatedDays.isEmpty()) "Generate Itinerary" else "Regenerate")
+                        Text(
+                            if (state.mode == AiGenerateMode.UPDATE_MULTIPLE_DAYS) {
+                                if (state.generatedDays.isEmpty()) "Suggest Multi-Day Update" else "Regenerate Suggestions"
+                            } else {
+                                if (state.generatedDays.isEmpty()) "Generate Itinerary" else "Regenerate"
+                            }
+                        )
                     }
                 }
             }
 
             if (state.generatedDays.isNotEmpty()) {
                 item {
-                    Text("Preview — ${state.generatedDays.size} days generated",
-                        style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (state.mode == AiGenerateMode.UPDATE_MULTIPLE_DAYS) {
+                            "Preview — suggested additions across ${state.generatedDays.size} day(s)"
+                        } else {
+                            "Preview — ${state.generatedDays.size} days generated"
+                        },
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
 
                 itemsIndexed(state.generatedDays) { _, day ->
@@ -105,7 +144,12 @@ fun AiGenerateScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Discard") }
                         Button(onClick = viewModel::commitToItinerary, modifier = Modifier.weight(1f)) {
-                            Text("Add to Itinerary")
+                            Text(
+                                when (state.mode) {
+                                    AiGenerateMode.UPDATE_MULTIPLE_DAYS -> "Add to Matching Days"
+                                    AiGenerateMode.FULL_TRIP -> "Add to Itinerary"
+                                }
+                            )
                         }
                     }
                     Spacer(Modifier.height(32.dp))

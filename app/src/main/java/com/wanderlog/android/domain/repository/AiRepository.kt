@@ -11,7 +11,9 @@ interface AiRepository {
         startDate: String,
         endDate: String,
         preferences: String,
-        travellers: Int
+        travellers: Int,
+        updatePrompt: String? = null,
+        existingDays: List<TripDay> = emptyList()
     ): List<TripDay>
 
     suspend fun parseFile(contentParts: List<ContentPartDto>, hint: DocumentHint? = null): ParsedBooking
