@@ -20,7 +20,7 @@ Release notes are auto-generated from commits since the previous tag.
 
 ## Signing setup (one-time)
 
-Without signing secrets the pipeline publishes an **unsigned APK** — installable via sideload but not suitable for the Play Store.
+Without signing secrets the pipeline publishes an **unsigned APK**. Android will not install an unsigned APK, so add the signing secrets before using GitHub Releases as an install source.
 
 ### 1. Generate a keystore
 
@@ -37,13 +37,52 @@ Go to **repo → Settings → Secrets and variables → Actions** and add:
 
 | Secret              | Value                                 |
 | ------------------- | ------------------------------------- |
-| `KEYSTORE_BASE64`   | `base64 -w0 wanderlog.jks`            |
+| `KEYSTORE_BASE64`   | base64-encoded `.jks` file            |
 | `KEYSTORE_PASSWORD` | keystore password                     |
 | `KEY_ALIAS`         | alias chosen above (e.g. `wanderlog`) |
 | `KEY_PASSWORD`      | key password                          |
 | `MAPS_API_KEY`      | Google Maps API key (can be blank)    |
 
+Generate `KEYSTORE_BASE64` with a single-line value:
+
+```bash
+# macOS
+base64 < wanderlog.jks | tr -d '\n'
+
+# Linux (GNU coreutils)
+base64 -w0 wanderlog.jks
+```
+
 Once set, the next tag push will produce a signed `wanderlog-v<tag>.apk` in the GitHub Release.
+
+## Re-releasing the current tag
+
+If `v1.0.0` already exists and was released without signing secrets, you have two practical options after adding the secrets:
+
+### Option A: Re-run the existing release workflow
+
+1. Open **GitHub → Actions → Android CI**.
+2. Open the run that was triggered by `v1.0.0`.
+3. Use **Re-run all jobs**.
+
+This rebuilds the same commit with the new secrets. Because the signed asset is named `wanderlog-v1.0.0.apk`, you may end up with both the old unsigned asset and the new signed asset on the same release. Delete the unsigned asset from the GitHub Release page if you want a clean release.
+
+### Option B: Delete and recreate the same tag
+
+Use this if you want the release page recreated from scratch:
+
+```bash
+git tag -d v1.0.0
+git push origin :refs/tags/v1.0.0
+git tag v1.0.0 1c65e33
+git push origin v1.0.0
+```
+
+That re-triggers the workflow for the same commit currently tagged in this repo.
+
+## When to bump the version instead
+
+If you want this to be a new public release rather than a corrected upload of the same build, bump `versionCode` and `versionName` first, then create a new tag such as `v1.0.1`.
 
 ## Multiple GitHub accounts
 
