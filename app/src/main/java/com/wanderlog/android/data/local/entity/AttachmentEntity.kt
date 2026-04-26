@@ -25,7 +25,10 @@ data class AttachmentEntity(
     @ColumnInfo(name = "local_path") val localPath: String,
     val label: String? = null,
     @ColumnInfo(name = "size_bytes") val sizeBytes: Long,
-    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    @ColumnInfo(name = "last_modified_by_device_id") val lastModifiedByDeviceId: String = ""
 ) {
     fun toDomain() = Attachment(
         id = id,
@@ -39,7 +42,12 @@ data class AttachmentEntity(
     )
 
     companion object {
-        fun fromDomain(attachment: Attachment) = AttachmentEntity(
+        fun fromDomain(
+            attachment: Attachment,
+            updatedAt: Long = attachment.createdAt,
+            deletedAt: Long? = null,
+            lastModifiedByDeviceId: String = ""
+        ) = AttachmentEntity(
             id = attachment.id,
             tripId = attachment.tripId,
             displayName = attachment.displayName,
@@ -47,7 +55,10 @@ data class AttachmentEntity(
             localPath = attachment.localPath,
             label = attachment.label,
             sizeBytes = attachment.sizeBytes,
-            createdAt = attachment.createdAt
+            createdAt = attachment.createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            lastModifiedByDeviceId = lastModifiedByDeviceId
         )
     }
 }

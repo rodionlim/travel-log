@@ -101,6 +101,7 @@ dependencies {
 
     // Maps & Places
     implementation(libs.bundles.maps)
+    implementation(libs.play.services.nearby)
 
     // Drag-reorder
     implementation(libs.reorderable)

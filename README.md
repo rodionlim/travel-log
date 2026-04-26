@@ -15,6 +15,7 @@ An offline-first Android travel planner. Plan trips, build day-by-day itinerarie
 - **Budget tracker** — log and categorise trip expenses, including auto-created transport expenses from imported flight totals and activity expenses linked from the itinerary
 - **Packing list** — per-trip checklist with aggregated and per-traveller tabs, plus AI-powered whole-list updates using trip context and a natural-language prompt
 - **Google Places integration** — search and pin locations when adding itinerary items, and fetch trip cover photos automatically
+- **Offline-first sync** — all data is stored locally in a Room database, with an offline sync layer
 
 ## Tech Stack
 
@@ -58,7 +59,12 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-See [RELEASING.md](RELEASING.md) for signing setup and CI details.
+See [docs/RELEASING.md](docs/RELEASING.md) for signing setup and CI details.
+
+## Docs
+
+- [Trip Sync](docs/TripSync.md)
+- [Releasing](docs/RELEASING.md)
 
 ## Architecture
 

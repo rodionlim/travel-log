@@ -28,7 +28,10 @@ data class ExpenseEntity(
     val category: String,
     val date: LocalDate? = null,
     val notes: String? = null,
-    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    @ColumnInfo(name = "last_modified_by_device_id") val lastModifiedByDeviceId: String = ""
 ) {
     fun toDomain() = Expense(
         id = id,
@@ -42,7 +45,13 @@ data class ExpenseEntity(
     )
 
     companion object {
-        fun fromDomain(expense: Expense) = ExpenseEntity(
+        fun fromDomain(
+            expense: Expense,
+            createdAt: Long = System.currentTimeMillis(),
+            updatedAt: Long = createdAt,
+            deletedAt: Long? = null,
+            lastModifiedByDeviceId: String = ""
+        ) = ExpenseEntity(
             id = expense.id,
             tripId = expense.tripId,
             title = expense.title,
@@ -50,7 +59,11 @@ data class ExpenseEntity(
             currencyCode = expense.currencyCode,
             category = expense.category.name,
             date = expense.date,
-            notes = expense.notes
+            notes = expense.notes,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            lastModifiedByDeviceId = lastModifiedByDeviceId
         )
     }
 }

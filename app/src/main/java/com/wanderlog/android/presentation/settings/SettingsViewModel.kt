@@ -2,10 +2,13 @@ package com.wanderlog.android.presentation.settings
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.wanderlog.android.data.sync.SyncTombstoneResetter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -90,12 +93,15 @@ data class SettingsState(
     val mapsKey: String = "",
     val openAiModel: String = OpenAiModels.DEFAULT_MODEL,
     val openAiParsingModel: String = OpenAiModels.DEFAULT_PARSING_MODEL,
+    val resetInProgress: Boolean = false,
+    val resetMessage: String? = null,
     val saved: Boolean = false
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val syncTombstoneResetter: SyncTombstoneResetter
 ) : ViewModel() {
 
     private val prefs by lazy {
@@ -144,6 +150,33 @@ class SettingsViewModel @Inject constructor(
             )
             .apply()
         _state.update { it.copy(saved = true) }
+    }
+
+    fun resetDeletedTombstones() {
+        viewModelScope.launch {
+            _state.update { it.copy(resetInProgress = true, resetMessage = null) }
+            runCatching {
+                syncTombstoneResetter.reset()
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        resetInProgress = false,
+                        resetMessage = "Deleted sync tombstones were permanently removed from this device."
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        resetInProgress = false,
+                        resetMessage = error.message ?: "Unable to reset deleted tombstones."
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearResetMessage() {
+        _state.update { it.copy(resetMessage = null) }
     }
 
     companion object {

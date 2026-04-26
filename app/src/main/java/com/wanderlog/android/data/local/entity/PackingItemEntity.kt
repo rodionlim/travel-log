@@ -25,7 +25,11 @@ data class PackingItemEntity(
     @ColumnInfo(name = "is_checked") val isChecked: Boolean = false,
     @ColumnInfo(name = "traveller_name") val travellerName: String? = null,
     val category: String? = null,
-    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0
+    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0,
+    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    @ColumnInfo(name = "last_modified_by_device_id") val lastModifiedByDeviceId: String = ""
 ) {
     fun toDomain() = PackingItem(
         id = id,
@@ -39,7 +43,13 @@ data class PackingItemEntity(
     )
 
     companion object {
-        fun fromDomain(item: PackingItem) = PackingItemEntity(
+        fun fromDomain(
+            item: PackingItem,
+            createdAt: Long = System.currentTimeMillis(),
+            updatedAt: Long = createdAt,
+            deletedAt: Long? = null,
+            lastModifiedByDeviceId: String = ""
+        ) = PackingItemEntity(
             id = item.id,
             tripId = item.tripId,
             title = item.title,
@@ -47,7 +57,11 @@ data class PackingItemEntity(
             isChecked = item.isChecked,
             travellerName = item.travellerName,
             category = item.category,
-            sortOrder = item.sortOrder
+            sortOrder = item.sortOrder,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            lastModifiedByDeviceId = lastModifiedByDeviceId
         )
     }
 }

@@ -23,7 +23,11 @@ data class TripDayEntity(
     @ColumnInfo(name = "trip_id") val tripId: String,
     val date: LocalDate,
     @ColumnInfo(name = "day_number") val dayNumber: Int,
-    val notes: String? = null
+    val notes: String? = null,
+    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    @ColumnInfo(name = "last_modified_by_device_id") val lastModifiedByDeviceId: String = ""
 ) {
     fun toDomain() = TripDay(
         id = id,
@@ -34,12 +38,22 @@ data class TripDayEntity(
     )
 
     companion object {
-        fun fromDomain(day: TripDay) = TripDayEntity(
+        fun fromDomain(
+            day: TripDay,
+            createdAt: Long = System.currentTimeMillis(),
+            updatedAt: Long = createdAt,
+            deletedAt: Long? = null,
+            lastModifiedByDeviceId: String = ""
+        ) = TripDayEntity(
             id = day.id,
             tripId = day.tripId,
             date = day.date,
             dayNumber = day.dayNumber,
-            notes = day.notes
+            notes = day.notes,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            lastModifiedByDeviceId = lastModifiedByDeviceId
         )
     }
 }

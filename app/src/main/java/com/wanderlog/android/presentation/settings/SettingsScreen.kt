@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wanderlog.android.core.ui.component.ConfirmDialog
 import com.wanderlog.android.core.ui.component.WanderTopBar
 
 @Composable
@@ -37,6 +38,7 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsState()
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var parsingModelMenuExpanded by remember { mutableStateOf(false) }
+    var showResetConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
@@ -149,6 +151,46 @@ fun SettingsScreen(
             Button(onClick = viewModel::save, modifier = Modifier.fillMaxWidth()) {
                 Text("Save")
             }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text("Sync Maintenance", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Hard reset deleted sync tombstones on this device. This permanently removes soft-deleted rows so old deletions stop participating in future syncs.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedButton(
+                onClick = { showResetConfirm = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.resetInProgress
+            ) {
+                Text(if (state.resetInProgress) "Resetting tombstones..." else "Reset Deleted Tombstones")
+            }
+
+            state.resetMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+    }
+
+    if (showResetConfirm) {
+        ConfirmDialog(
+            title = "Reset deleted tombstones",
+            message = "Permanently remove all deleted sync tombstones from this device? This is a local hard reset for past deletions and cannot be undone.",
+            onConfirm = {
+                showResetConfirm = false
+                viewModel.resetDeletedTombstones()
+            },
+            onDismiss = {
+                showResetConfirm = false
+                viewModel.clearResetMessage()
+            }
+        )
     }
 }

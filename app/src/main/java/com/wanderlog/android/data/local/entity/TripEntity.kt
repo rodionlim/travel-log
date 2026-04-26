@@ -19,7 +19,9 @@ data class TripEntity(
     @ColumnInfo(name = "currency_code") val currencyCode: String = "USD",
     @ColumnInfo(name = "traveller_names") val travellerProfilesRaw: String = "",
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
-    @ColumnInfo(name = "updated_at") val updatedAt: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    @ColumnInfo(name = "last_modified_by_device_id") val lastModifiedByDeviceId: String = ""
 ) {
     fun toDomain() = Trip(
         id = id,
@@ -34,7 +36,13 @@ data class TripEntity(
     )
 
     companion object {
-        fun fromDomain(trip: Trip, now: Long = System.currentTimeMillis()) = TripEntity(
+        fun fromDomain(
+            trip: Trip,
+            createdAt: Long = System.currentTimeMillis(),
+            updatedAt: Long = createdAt,
+            deletedAt: Long? = null,
+            lastModifiedByDeviceId: String = ""
+        ) = TripEntity(
             id = trip.id,
             name = trip.name,
             destination = trip.destination,
@@ -44,8 +52,10 @@ data class TripEntity(
             budgetAmount = trip.budgetAmount,
             currencyCode = trip.currencyCode,
             travellerProfilesRaw = TravellerProfilesCodec.encode(trip.travellerProfiles),
-            createdAt = now,
-            updatedAt = now
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            lastModifiedByDeviceId = lastModifiedByDeviceId
         )
     }
 }

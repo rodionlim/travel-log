@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.wanderlog.android.data.local.dao.AttachmentDao
 import com.wanderlog.android.data.local.entity.AttachmentEntity
+import com.wanderlog.android.data.sync.SyncMetadataStamp
 import com.wanderlog.android.domain.model.Attachment
 import com.wanderlog.android.domain.repository.AttachmentRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,6 +19,7 @@ import javax.inject.Inject
 
 class AttachmentRepositoryImpl @Inject constructor(
     private val dao: AttachmentDao,
+    private val syncMetadataStamp: SyncMetadataStamp,
     @ApplicationContext private val context: Context
 ) : AttachmentRepository {
 
@@ -43,6 +45,8 @@ class AttachmentRepositoryImpl @Inject constructor(
             }
 
             val relativePath = "attachments/$tripId/${target.name}"
+            val now = syncMetadataStamp.now()
+            val deviceId = syncMetadataStamp.currentDeviceId()
             val attachment = Attachment(
                 id = id,
                 tripId = tripId,
@@ -51,15 +55,27 @@ class AttachmentRepositoryImpl @Inject constructor(
                 localPath = relativePath,
                 label = label,
                 sizeBytes = target.length(),
-                createdAt = System.currentTimeMillis()
+                createdAt = now
             )
-            dao.insert(AttachmentEntity.fromDomain(attachment))
+            dao.insert(
+                AttachmentEntity.fromDomain(
+                    attachment = attachment,
+                    updatedAt = now,
+                    lastModifiedByDeviceId = deviceId
+                )
+            )
             attachment
         }
 
     override suspend fun delete(attachment: Attachment) = withContext(Dispatchers.IO) {
+        val now = syncMetadataStamp.now()
+        val deviceId = syncMetadataStamp.currentDeviceId()
         getFile(attachment).delete()
-        dao.delete(AttachmentEntity.fromDomain(attachment))
+        dao.markDeleted(
+            attachmentId = attachment.id,
+            deletedAt = now,
+            lastModifiedByDeviceId = deviceId
+        )
     }
 
     override suspend fun readText(attachment: Attachment): String = withContext(Dispatchers.IO) {

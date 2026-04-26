@@ -4,10 +4,10 @@ Workflow file: `.github/workflows/android.yml`
 
 ## How the pipeline works
 
-| Trigger             | What runs                                                     |
-| ------------------- | ------------------------------------------------------------- |
-| Push / PR to `main` | Unit tests + debug APK build (artifact kept 7 days)           |
-| `v*.*.*` tag push   | Release APK build → optional signing → GitHub Release created |
+| Trigger             | What runs                                                       |
+| ------------------- | --------------------------------------------------------------- |
+| Push / PR to `main` | Unit tests + debug APK build (artifact kept 7 days)             |
+| `v*.*.*` tag push   | Release APK build -> optional signing -> GitHub Release created |
 
 ## Creating a release
 
@@ -29,11 +29,11 @@ keytool -genkey -v -keystore wanderlog.jks \
   -alias wanderlog -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Keep `wanderlog.jks` somewhere safe — **never commit it**.
+Keep `wanderlog.jks` somewhere safe - **never commit it**.
 
 ### 2. Add secrets to GitHub
 
-Go to **repo → Settings → Secrets and variables → Actions** and add:
+Go to **repo -> Settings -> Secrets and variables -> Actions** and add:
 
 | Secret              | Value                                 |
 | ------------------- | ------------------------------------- |
@@ -61,7 +61,7 @@ If `v1.0.0` already exists and was released without signing secrets, you have tw
 
 ### Option A: Re-run the existing release workflow
 
-1. Open **GitHub → Actions → Android CI**.
+1. Open **GitHub -> Actions -> Android CI**.
 2. Open the run that was triggered by `v1.0.0`.
 3. Use **Re-run all jobs**.
 

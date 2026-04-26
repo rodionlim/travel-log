@@ -28,7 +28,7 @@ import com.wanderlog.android.data.local.entity.TripEntity
         PackingItemEntity::class,
         AttachmentEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(RoomConverters::class)
@@ -64,6 +64,90 @@ abstract class WanderlogDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE packing_items ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                val migratedAt = System.currentTimeMillis()
+
+                database.execSQL(
+                    "ALTER TABLE trips ADD COLUMN deleted_at INTEGER"
+                )
+                database.execSQL(
+                    "ALTER TABLE trips ADD COLUMN last_modified_by_device_id TEXT NOT NULL DEFAULT 'legacy'"
+                )
+
+                database.execSQL(
+                    "ALTER TABLE trip_days ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE trip_days ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE trip_days ADD COLUMN deleted_at INTEGER"
+                )
+                database.execSQL(
+                    "ALTER TABLE trip_days ADD COLUMN last_modified_by_device_id TEXT NOT NULL DEFAULT 'legacy'"
+                )
+                database.execSQL(
+                    "UPDATE trip_days SET created_at = $migratedAt, updated_at = $migratedAt"
+                )
+
+                database.execSQL(
+                    "ALTER TABLE itinerary_items ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE itinerary_items ADD COLUMN deleted_at INTEGER"
+                )
+                database.execSQL(
+                    "ALTER TABLE itinerary_items ADD COLUMN last_modified_by_device_id TEXT NOT NULL DEFAULT 'legacy'"
+                )
+                database.execSQL(
+                    "UPDATE itinerary_items SET updated_at = created_at"
+                )
+
+                database.execSQL(
+                    "ALTER TABLE expenses ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE expenses ADD COLUMN deleted_at INTEGER"
+                )
+                database.execSQL(
+                    "ALTER TABLE expenses ADD COLUMN last_modified_by_device_id TEXT NOT NULL DEFAULT 'legacy'"
+                )
+                database.execSQL(
+                    "UPDATE expenses SET updated_at = created_at"
+                )
+
+                database.execSQL(
+                    "ALTER TABLE packing_items ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE packing_items ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE packing_items ADD COLUMN deleted_at INTEGER"
+                )
+                database.execSQL(
+                    "ALTER TABLE packing_items ADD COLUMN last_modified_by_device_id TEXT NOT NULL DEFAULT 'legacy'"
+                )
+                database.execSQL(
+                    "UPDATE packing_items SET created_at = $migratedAt, updated_at = $migratedAt"
+                )
+
+                database.execSQL(
+                    "ALTER TABLE attachments ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE attachments ADD COLUMN deleted_at INTEGER"
+                )
+                database.execSQL(
+                    "ALTER TABLE attachments ADD COLUMN last_modified_by_device_id TEXT NOT NULL DEFAULT 'legacy'"
+                )
+                database.execSQL(
+                    "UPDATE attachments SET updated_at = created_at"
                 )
             }
         }

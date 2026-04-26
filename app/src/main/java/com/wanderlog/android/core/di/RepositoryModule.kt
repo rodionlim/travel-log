@@ -7,6 +7,8 @@ import com.wanderlog.android.data.repository.ItineraryRepositoryImpl
 import com.wanderlog.android.data.repository.PackingRepositoryImpl
 import com.wanderlog.android.data.repository.PlacesRepositoryImpl
 import com.wanderlog.android.data.repository.TripRepositoryImpl
+import com.wanderlog.android.data.sync.DefaultSyncMetadataStamp
+import com.wanderlog.android.data.sync.SyncMetadataStamp
 import com.wanderlog.android.domain.repository.AiRepository
 import com.wanderlog.android.domain.repository.AttachmentRepository
 import com.wanderlog.android.domain.repository.ExpenseRepository
@@ -31,4 +33,5 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindAiRepository(impl: AiRepositoryImpl): AiRepository
     @Binds @Singleton abstract fun bindPlacesRepository(impl: PlacesRepositoryImpl): PlacesRepository
     @Binds @Singleton abstract fun bindAttachmentRepository(impl: AttachmentRepositoryImpl): AttachmentRepository
+    @Binds @Singleton abstract fun bindSyncMetadataStamp(impl: DefaultSyncMetadataStamp): SyncMetadataStamp
 }

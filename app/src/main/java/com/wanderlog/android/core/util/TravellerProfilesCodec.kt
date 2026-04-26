@@ -8,8 +8,10 @@ object TravellerProfilesCodec {
 
     private const val LEGACY_SEPARATOR = "\u001F"
 
-    fun encode(profiles: List<TravellerProfile>): String =
-        JSONArray().apply {
+    fun encode(profiles: List<TravellerProfile>): String {
+        if (profiles.isEmpty()) return ""
+
+        return JSONArray().apply {
             profiles.forEach { profile ->
                 put(
                     JSONObject().apply {
@@ -21,6 +23,7 @@ object TravellerProfilesCodec {
                 )
             }
         }.toString()
+    }
 
     fun decode(raw: String?): List<TravellerProfile> {
         val trimmed = raw?.trim().orEmpty()

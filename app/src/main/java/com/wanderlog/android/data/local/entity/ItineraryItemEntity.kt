@@ -37,7 +37,10 @@ data class ItineraryItemEntity(
     @ColumnInfo(name = "linked_expense_id") val linkedExpenseId: String? = null,
     @ColumnInfo(name = "confirmation_url") val confirmationUrl: String? = null,
     @ColumnInfo(name = "sort_order") val sortOrder: Int = 0,
-    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    @ColumnInfo(name = "last_modified_by_device_id") val lastModifiedByDeviceId: String = ""
 ) {
     fun toDomain(): ItineraryItem {
         val place = if (placeName != null) Place(placeId, placeName, address, latitude, longitude) else null
@@ -59,7 +62,13 @@ data class ItineraryItemEntity(
     }
 
     companion object {
-        fun fromDomain(item: ItineraryItem) = ItineraryItemEntity(
+        fun fromDomain(
+            item: ItineraryItem,
+            createdAt: Long = System.currentTimeMillis(),
+            updatedAt: Long = createdAt,
+            deletedAt: Long? = null,
+            lastModifiedByDeviceId: String = ""
+        ) = ItineraryItemEntity(
             id = item.id,
             tripDayId = item.tripDayId,
             tripId = item.tripId,
@@ -76,7 +85,11 @@ data class ItineraryItemEntity(
             bookingRef = item.bookingRef,
             linkedExpenseId = item.linkedExpenseId,
             confirmationUrl = item.confirmationUrl,
-            sortOrder = item.sortOrder
+            sortOrder = item.sortOrder,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            lastModifiedByDeviceId = lastModifiedByDeviceId
         )
     }
 }

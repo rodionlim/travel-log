@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -46,6 +47,7 @@ fun TripListScreen(
     onCreateTrip: () -> Unit,
     onEditTrip: (String) -> Unit,
     onOpenTrip: (String) -> Unit,
+    onOpenSync: () -> Unit,
     onSettings: () -> Unit,
     viewModel: TripListViewModel = hiltViewModel()
 ) {
@@ -71,6 +73,9 @@ fun TripListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenSync) {
+                        Icon(Icons.Default.Sync, contentDescription = "Sync trips")
+                    }
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }

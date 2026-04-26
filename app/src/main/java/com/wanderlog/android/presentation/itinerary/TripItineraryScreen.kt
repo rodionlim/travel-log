@@ -20,8 +20,12 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -48,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -75,6 +80,7 @@ fun TripItineraryScreen(
     onOpenBudget: () -> Unit,
     onOpenPacking: () -> Unit,
     onOpenAiGenerate: () -> Unit,
+    onOpenSync: () -> Unit,
     onOpenAttachments: () -> Unit,
     onOpenAttachment: (String) -> Unit,
     viewModel: TripItineraryViewModel = hiltViewModel()
@@ -88,6 +94,7 @@ fun TripItineraryScreen(
     var selectedPlaceForForm by remember { mutableStateOf<Place?>(null) }
     var showFileImport by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ItineraryItem?>(null) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     val lazyListState = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -99,7 +106,13 @@ fun TripItineraryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.tripName) },
+                title = {
+                    Text(
+                        text = state.tripName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -112,17 +125,55 @@ fun TripItineraryScreen(
                     IconButton(onClick = onOpenBudget) {
                         Icon(Icons.Default.AttachMoney, contentDescription = "Budget")
                     }
-                    IconButton(onClick = onOpenPacking) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = "Packing")
-                    }
-                    IconButton(onClick = onOpenAiGenerate) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = "AI Generate")
-                    }
-                    IconButton(onClick = { showFileImport = true }) {
-                        Icon(Icons.Default.AttachFile, contentDescription = "Import file")
-                    }
-                    IconButton(onClick = onOpenAttachments) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = "Attachments")
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More actions")
+                        }
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Packing") },
+                                leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenPacking()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("AI Generate") },
+                                leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenAiGenerate()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Sync trip") },
+                                leadingIcon = { Icon(Icons.Default.Sync, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenSync()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import file") },
+                                leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showFileImport = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Attachments") },
+                                leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenAttachments()
+                                }
+                            )
+                        }
                     }
                 }
             )

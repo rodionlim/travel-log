@@ -15,6 +15,7 @@ import com.wanderlog.android.presentation.itinerary.TripItineraryScreen
 import com.wanderlog.android.presentation.packing.PackingScreen
 import com.wanderlog.android.presentation.settings.SettingsScreen
 import com.wanderlog.android.presentation.share.ShareImportScreen
+import com.wanderlog.android.presentation.sync.TripSyncScreen
 import com.wanderlog.android.presentation.trips.form.TripFormScreen
 import com.wanderlog.android.presentation.trips.list.TripListScreen
 
@@ -31,6 +32,7 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
                 onCreateTrip = { navController.navigate(Screen.TripForm.createRoute()) },
                 onEditTrip = { tripId -> navController.navigate(Screen.TripForm.createRoute(tripId)) },
                 onOpenTrip = { tripId -> navController.navigate(Screen.Itinerary.createRoute(tripId)) },
+                onOpenSync = { navController.navigate(Screen.TripSync.createRoute()) },
                 onSettings = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -56,6 +58,7 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
                 onOpenBudget = { navController.navigate(Screen.Budget.createRoute(tripId)) },
                 onOpenPacking = { navController.navigate(Screen.Packing.createRoute(tripId)) },
                 onOpenAiGenerate = { navController.navigate(Screen.AiGenerate.createRoute(tripId)) },
+                onOpenSync = { navController.navigate(Screen.TripSync.createRoute(tripId)) },
                 onOpenAttachments = { navController.navigate(Screen.Attachments.createRoute(tripId)) },
                 onOpenAttachment = { attachmentId ->
                     navController.navigate(Screen.AttachmentViewer.createRoute(attachmentId))
@@ -94,6 +97,15 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
             arguments = listOf(navArgument(Screen.AiGenerate.ARG_TRIP_ID) { type = NavType.StringType })
         ) {
             AiGenerateScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Screen.TripSync.route,
+            arguments = listOf(navArgument(Screen.TripSync.ARG_TRIP_ID) {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            })
+        ) {
+            TripSyncScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.Settings.route) {
