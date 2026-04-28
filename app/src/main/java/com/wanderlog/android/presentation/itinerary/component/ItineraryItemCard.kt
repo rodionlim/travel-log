@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.automirrored.filled.Note
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Hotel
@@ -55,6 +56,7 @@ fun ItineraryItemCard(
     attachmentCount: Int = 0,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    onOpenInMaps: (() -> Unit)? = null,
     onManageAttachments: (() -> Unit)? = null,
     dragHandle: @Composable (() -> Unit)? = null
 ) {
@@ -135,12 +137,30 @@ fun ItineraryItemCard(
                 }
                 if (item.itemType != ItineraryItemType.FLIGHT) {
                     item.place?.address?.let { addr ->
-                        Text(
-                            addr,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                addr,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                            onOpenInMaps?.let {
+                                TextButton(onClick = it) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                        contentDescription = null,
+                                        tint = accent,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Maps", color = accent)
+                                }
+                            }
+                        }
                     }
                 }
                 item.bookingRef?.let { ref ->

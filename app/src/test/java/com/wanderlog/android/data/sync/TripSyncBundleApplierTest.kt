@@ -3,6 +3,7 @@ package com.wanderlog.android.data.sync
 import android.content.Context
 import com.wanderlog.android.data.local.dao.AttachmentDao
 import com.wanderlog.android.data.local.dao.ExpenseDao
+import com.wanderlog.android.data.local.dao.ItineraryItemAttachmentLinkDao
 import com.wanderlog.android.data.local.dao.ItineraryItemDao
 import com.wanderlog.android.data.local.dao.PackingItemDao
 import com.wanderlog.android.data.local.dao.TripDao
@@ -34,6 +35,7 @@ class TripSyncBundleApplierTest {
     private val tripDao = mockk<TripDao>(relaxed = true)
     private val tripDayDao = mockk<TripDayDao>(relaxed = true)
     private val itineraryItemDao = mockk<ItineraryItemDao>(relaxed = true)
+    private val itineraryItemAttachmentLinkDao = mockk<ItineraryItemAttachmentLinkDao>(relaxed = true)
     private val expenseDao = mockk<ExpenseDao>(relaxed = true)
     private val packingItemDao = mockk<PackingItemDao>(relaxed = true)
     private val attachmentDao = mockk<AttachmentDao>(relaxed = true)
@@ -47,6 +49,7 @@ class TripSyncBundleApplierTest {
             tripDao = tripDao,
             tripDayDao = tripDayDao,
             itineraryItemDao = itineraryItemDao,
+            itineraryItemAttachmentLinkDao = itineraryItemAttachmentLinkDao,
             expenseDao = expenseDao,
             packingItemDao = packingItemDao,
             attachmentDao = attachmentDao,
@@ -105,6 +108,7 @@ class TripSyncBundleApplierTest {
             tripDao = tripDao,
             tripDayDao = tripDayDao,
             itineraryItemDao = itineraryItemDao,
+            itineraryItemAttachmentLinkDao = itineraryItemAttachmentLinkDao,
             expenseDao = expenseDao,
             packingItemDao = packingItemDao,
             attachmentDao = attachmentDao,
@@ -172,6 +176,7 @@ class TripSyncBundleApplierTest {
             tripDao = tripDao,
             tripDayDao = tripDayDao,
             itineraryItemDao = itineraryItemDao,
+            itineraryItemAttachmentLinkDao = itineraryItemAttachmentLinkDao,
             expenseDao = expenseDao,
             packingItemDao = packingItemDao,
             attachmentDao = attachmentDao,

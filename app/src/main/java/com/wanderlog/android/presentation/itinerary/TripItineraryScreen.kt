@@ -1,10 +1,12 @@
 package com.wanderlog.android.presentation.itinerary
 
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,9 +30,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SwipeToDismissBox
@@ -46,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -62,13 +67,16 @@ import com.wanderlog.android.core.ui.component.destinationVisualFor
 import com.wanderlog.android.core.util.toCompactSlashDisplay
 import com.wanderlog.android.domain.model.ItineraryItem
 import com.wanderlog.android.domain.model.Place
-import com.wanderlog.android.presentation.ai.fileImport.FileImportSheet
+import com.wanderlog.android.presentation.ai.fileImport.ImportSheet
 import com.wanderlog.android.presentation.itinerary.component.ItineraryItemCard
 import com.wanderlog.android.presentation.itinerary.form.ItineraryItemFormSheet
 import com.wanderlog.android.presentation.placeSearch.PlaceSearchSheet
 import coil.compose.AsyncImage
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZonedDateTime
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -86,8 +94,19 @@ fun TripItineraryScreen(
     viewModel: TripItineraryViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val items by viewModel.itemsForDay.collectAsState()
+    val rawItems by viewModel.itemsForDay.collectAsState()
+    val uriHandler = LocalUriHandler.current
     val activeHotels = state.activeHotelsForSelectedDay
+    val items = remember(rawItems) {
+        rawItems.sortedWith(
+            compareBy<ItineraryItem>(
+                { it.startTime == null },
+                { parseItinerarySortDateTime(it.startTime) },
+                { it.sortOrder },
+                { it.title.lowercase() }
+            )
+        )
+    }
 
     var showItemForm by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<ItineraryItem?>(null) }
@@ -95,6 +114,7 @@ fun TripItineraryScreen(
     var selectedPlaceForForm by remember { mutableStateOf<Place?>(null) }
     var initialPlaceQuery by remember { mutableStateOf<String?>(null) }
     var showFileImport by remember { mutableStateOf(false) }
+    var showAddOptions by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ItineraryItem?>(null) }
     var showOverflowMenu by remember { mutableStateOf(false) }
 
@@ -168,7 +188,7 @@ fun TripItineraryScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Import file") },
+                                text = { Text("Import") },
                                 leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null) },
                                 onClick = {
                                     showOverflowMenu = false
@@ -189,7 +209,7 @@ fun TripItineraryScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { editingItem = null; showItemForm = true }) {
+            FloatingActionButton(onClick = { showAddOptions = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Add item")
             }
         }
@@ -300,12 +320,24 @@ fun TripItineraryScreen(
                                         item = item,
                                         linkedExpense = item.linkedExpenseId?.let(state.linkedExpensesById::get),
                                         attachmentCount = state.attachmentCountsByItemId[item.id] ?: 0,
+                                        onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
+                                            { uriHandler.openUri(mapsUrl) }
+                                        },
                                         onManageAttachments = if ((state.attachmentCountsByItemId[item.id] ?: 0) > 0) {
                                             { onOpenItemAttachments(item.id) }
                                         } else {
                                             null
                                         }
                                     )
+                                }
+
+                                if (items.isNotEmpty()) {
+                                    item(key = "active-hotels-divider") {
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                            color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                    }
                                 }
                             }
 
@@ -331,6 +363,9 @@ fun TripItineraryScreen(
                                                 editingItem = item
                                                 showItemForm = true
                                             },
+                                            onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
+                                                { uriHandler.openUri(mapsUrl) }
+                                            },
                                             onManageAttachments = if ((state.attachmentCountsByItemId[item.id] ?: 0) > 0) {
                                                 { onOpenItemAttachments(item.id) }
                                             } else {
@@ -351,6 +386,51 @@ fun TripItineraryScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showAddOptions) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showAddOptions = false },
+            sheetState = sheetState
+        ) {
+            androidx.compose.foundation.layout.Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Add to Trip",
+                    style = androidx.compose.material3.MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = "Choose how you want to add something to this trip.",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(
+                    onClick = {
+                        showAddOptions = false
+                        showFileImport = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Import from file / clipboard")
+                }
+                OutlinedButton(
+                    onClick = {
+                        showAddOptions = false
+                        editingItem = null
+                        showItemForm = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Manual Entry")
+                }
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
@@ -417,7 +497,7 @@ fun TripItineraryScreen(
             onDismissRequest = { showFileImport = false },
             sheetState = sheetState
         ) {
-            FileImportSheet(
+            ImportSheet(
                 tripId = tripId,
                 onDismiss = { showFileImport = false }
             )
@@ -437,4 +517,22 @@ fun TripItineraryScreen(
             onDismiss = { itemToDelete = null }
         )
     }
+}
+
+private fun parseItinerarySortDateTime(value: String?): LocalDateTime? {
+    val candidate = value?.trim().orEmpty()
+    if (candidate.isBlank()) return null
+
+    return runCatching { OffsetDateTime.parse(candidate).toLocalDateTime() }.getOrNull()
+        ?: runCatching { ZonedDateTime.parse(candidate).toLocalDateTime() }.getOrNull()
+        ?: runCatching { LocalDateTime.parse(candidate) }.getOrNull()
+}
+
+private fun Place.toGoogleMapsUrl(): String? {
+    val coordinates = listOfNotNull(latitude, longitude)
+        .takeIf { it.size == 2 }
+        ?.joinToString(",")
+
+    val query = coordinates ?: address?.takeIf { it.isNotBlank() } ?: name.takeIf { it.isNotBlank() }
+    return query?.let { "https://www.google.com/maps/search/?api=1&query=${Uri.encode(it)}" }
 }

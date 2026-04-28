@@ -33,6 +33,11 @@ data class ParsedHotel(
 data class ParsedActivity(
     val title: String,
     val location: String? = null,
+    val pickupLocation: String? = null,
+    val dropoffLocation: String? = null,
     val dateTime: String? = null,
+    val endDateTime: String? = null,
+    val price: String? = null,
+    val bookingRef: String? = null,
     val notes: String? = null
 )

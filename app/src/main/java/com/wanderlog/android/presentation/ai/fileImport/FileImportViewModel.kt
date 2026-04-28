@@ -94,7 +94,7 @@ class FileImportViewModel @Inject constructor(
                     val days = tripRepository.getDaysForTrip(tripId)
                     val trip = tripRepository.getTripById(tripId)
                     pendingSourceUris = uris
-                    val items = bookingToItems(booking, tripId, days, trip?.currencyCode ?: "USD")
+                    val items = bookingToItems(booking, tripId, days, trip?.currencyCode ?: "SGD")
                     _step.value = FileImportStep.Review(booking, items, days, storesLocalAttachment = true)
                 }
                 .onFailure { e ->
@@ -112,7 +112,7 @@ class FileImportViewModel @Inject constructor(
                     val days = tripRepository.getDaysForTrip(tripId)
                     val trip = tripRepository.getTripById(tripId)
                     pendingSourceUris = emptyList()
-                    val items = bookingToItems(booking, tripId, days, trip?.currencyCode ?: "USD")
+                    val items = bookingToItems(booking, tripId, days, trip?.currencyCode ?: "SGD")
                     _step.value = FileImportStep.Review(booking, items, days, storesLocalAttachment = false)
                 }
                 .onFailure { e ->
@@ -146,7 +146,7 @@ class FileImportViewModel @Inject constructor(
                 }
 
                 review
-                    ?.let { createImportedExpenses(it.parsedBooking, tripId, trip?.currencyCode ?: "USD") }
+                    ?.let { createImportedExpenses(it.parsedBooking, tripId, trip?.currencyCode ?: "SGD") }
                     ?.forEach { expense -> addExpense(expense) }
             }
                 .onSuccess {
@@ -188,6 +188,8 @@ class FileImportViewModel @Inject constructor(
         val linkedExpenseIdsByHotelIndex = buildImportedHotelExpenseCandidates(booking, fallbackCurrencyCode)
             .mapIndexed { index, candidate -> index to candidate.expenseId }
             .toMap()
+        val linkedExpenseIdsByActivityIndex = buildImportedActivityExpenseCandidates(booking, fallbackCurrencyCode)
+            .associate { it.activityIndex to it.expenseId }
         val result = mutableListOf<ItineraryItem>()
         booking.flights.forEachIndexed { index, f ->
             result.add(ItineraryItem(
@@ -219,17 +221,39 @@ class FileImportViewModel @Inject constructor(
                 linkedExpenseId = linkedExpenseIdsByHotelIndex[index]
             ))
         }
-        booking.activities.forEach { a ->
+        booking.activities.forEachIndexed { index, a ->
+            val itemType = inferActivityItemType(a)
+            val hasSeparateReturnEntry = shouldCreateSeparateCarRentalReturn(a, itemType)
+
             result.add(ItineraryItem(
                 id = UUID.randomUUID().toString(),
                 tripDayId = resolveTripDayId(days, a.dateTime, defaultDayId),
                 tripId = tripId,
                 title = a.title,
-                itemType = ItineraryItemType.ACTIVITY,
-                place = a.location?.let { Place(name = it) },
+                itemType = itemType,
+                place = (a.pickupLocation ?: a.location)?.let { Place(name = it) },
                 startTime = a.dateTime,
-                notes = a.notes
+                endTime = if (hasSeparateReturnEntry) null else a.endDateTime,
+                notes = buildActivityNotes(a),
+                bookingRef = a.bookingRef,
+                linkedExpenseId = linkedExpenseIdsByActivityIndex[index]
             ))
+
+            if (hasSeparateReturnEntry) {
+                result.add(ItineraryItem(
+                    id = UUID.randomUUID().toString(),
+                    tripDayId = resolveTripDayId(days, a.endDateTime, defaultDayId),
+                    tripId = tripId,
+                    title = buildCarRentalReturnTitle(a),
+                    itemType = itemType,
+                    place = (a.dropoffLocation ?: a.location)?.let { Place(name = it) },
+                    startTime = a.endDateTime,
+                    endTime = null,
+                    notes = buildCarRentalReturnNotes(a),
+                    bookingRef = a.bookingRef,
+                    linkedExpenseId = null
+                ))
+            }
         }
         return result
     }
@@ -320,6 +344,55 @@ class FileImportViewModel @Inject constructor(
         ).takeIf { it.isNotEmpty() }?.joinToString("\n")
     }
 
+    private fun buildActivityNotes(activity: com.wanderlog.android.domain.model.ParsedActivity): String? {
+        return listOfNotNull(
+            activity.pickupLocation
+                ?.takeIf { it.isNotBlank() && it != activity.location }
+                ?.let { "Pickup: $it" },
+            activity.dropoffLocation?.takeIf { it.isNotBlank() }?.let { "Drop-off: $it" },
+            activity.location
+                ?.takeIf { it.isNotBlank() && activity.pickupLocation.isNullOrBlank() }
+                ?.let { "Location: $it" },
+            activity.notes?.takeIf { it.isNotBlank() }
+        ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+    }
+
+    private fun inferActivityItemType(activity: com.wanderlog.android.domain.model.ParsedActivity): ItineraryItemType {
+        val title = activity.title.lowercase()
+        return when {
+            "car rental" in title || "rental car" in title || "hire car" in title -> ItineraryItemType.TRANSPORT
+            else -> ItineraryItemType.ACTIVITY
+        }
+    }
+
+    private fun shouldCreateSeparateCarRentalReturn(
+        activity: com.wanderlog.android.domain.model.ParsedActivity,
+        itemType: ItineraryItemType
+    ): Boolean {
+        if (itemType != ItineraryItemType.TRANSPORT || activity.endDateTime.isNullOrBlank()) return false
+
+        val pickupDate = parseImportedDate(activity.dateTime)
+        val returnDate = parseImportedDate(activity.endDateTime)
+        return pickupDate != null && returnDate != null && pickupDate != returnDate
+    }
+
+    private fun buildCarRentalReturnTitle(activity: com.wanderlog.android.domain.model.ParsedActivity): String {
+        val title = activity.title.trim()
+        return if (title.isBlank()) {
+            "Car rental return"
+        } else {
+            "$title return"
+        }
+    }
+
+    private fun buildCarRentalReturnNotes(activity: com.wanderlog.android.domain.model.ParsedActivity): String? {
+        return listOfNotNull(
+            activity.pickupLocation?.takeIf { it.isNotBlank() }?.let { "Pickup: $it" },
+            activity.dropoffLocation?.takeIf { it.isNotBlank() }?.let { "Return: $it" },
+            activity.notes?.takeIf { it.isNotBlank() }
+        ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+    }
+
     private fun resolveTripDayId(days: List<TripDay>, dateTime: String?, fallbackDayId: String): String {
         val localDate = parseImportedDate(dateTime) ?: return fallbackDayId
         return days.firstOrNull { it.date == localDate }?.id ?: fallbackDayId
@@ -375,7 +448,28 @@ class FileImportViewModel @Inject constructor(
                 )
             }
 
-        return flightExpenses + hotelExpenses
+        val activityExpenses = buildImportedActivityExpenseCandidates(booking, fallbackCurrencyCode)
+            .groupBy(ImportedActivityExpenseCandidate::groupKey)
+            .values
+            .map { candidates ->
+                val representative = candidates.first()
+                Expense(
+                    id = representative.expenseId,
+                    tripId = tripId,
+                    title = buildActivityExpenseTitle(candidates.map { it.activity }),
+                    amount = representative.amount,
+                    currencyCode = representative.currencyCode,
+                    category = inferredActivityExpenseCategory(representative.activity),
+                    date = parseImportedDate(representative.activity.dateTime ?: representative.activity.endDateTime),
+                    notes = listOfNotNull(
+                        representative.activity.bookingRef?.let { "Booking reference: $it" },
+                        representative.activity.price?.let { "Imported total: $it" },
+                        representative.activity.notes?.takeIf { it.isNotBlank() }
+                    ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+                )
+            }
+
+        return flightExpenses + hotelExpenses + activityExpenses
     }
 
     private fun buildImportedFlightExpenseCandidates(
@@ -419,6 +513,25 @@ class FileImportViewModel @Inject constructor(
             val groupKey = buildImportedHotelExpenseGroupKey(hotel, parsedAmount, currencyCode)
             ImportedHotelExpenseCandidate(
                 hotel = hotel,
+                amount = parsedAmount,
+                currencyCode = currencyCode,
+                groupKey = groupKey,
+                expenseId = UUID.nameUUIDFromBytes(groupKey.toByteArray()).toString()
+            )
+        }
+    }
+
+    private fun buildImportedActivityExpenseCandidates(
+        booking: ParsedBooking,
+        fallbackCurrencyCode: String
+    ): List<ImportedActivityExpenseCandidate> {
+        return booking.activities.mapIndexedNotNull { index, activity ->
+            val parsedAmount = parseImportedAmount(activity.price) ?: return@mapIndexedNotNull null
+            val currencyCode = inferCurrencyCode(activity.price, fallbackCurrencyCode)
+            val groupKey = buildImportedActivityExpenseGroupKey(activity, parsedAmount, currencyCode)
+            ImportedActivityExpenseCandidate(
+                activityIndex = index,
+                activity = activity,
                 amount = parsedAmount,
                 currencyCode = currencyCode,
                 groupKey = groupKey,
@@ -502,6 +615,37 @@ class FileImportViewModel @Inject constructor(
         return representative.name.trim().ifBlank { "Accommodation" }
     }
 
+    private fun buildImportedActivityExpenseGroupKey(
+        activity: com.wanderlog.android.domain.model.ParsedActivity,
+        amount: Double,
+        currencyCode: String
+    ): String {
+        val bookingRef = activity.bookingRef?.trim().orEmpty()
+        return when {
+            bookingRef.isNotBlank() -> "activity-booking:$bookingRef|$amount|$currencyCode"
+            else -> listOf(
+                activity.title.trim(),
+                activity.dateTime.orEmpty(),
+                activity.endDateTime.orEmpty(),
+                amount.toString(),
+                currencyCode
+            ).joinToString("|")
+        }
+    }
+
+    private fun buildActivityExpenseTitle(activities: List<com.wanderlog.android.domain.model.ParsedActivity>): String {
+        val representative = activities.first()
+        return representative.title.trim().ifBlank { "Activity" }
+    }
+
+    private fun inferredActivityExpenseCategory(activity: com.wanderlog.android.domain.model.ParsedActivity): ExpenseCategory {
+        val title = activity.title.lowercase()
+        return when {
+            "car rental" in title || "rental car" in title || "hire car" in title -> ExpenseCategory.TRANSPORT
+            else -> ExpenseCategory.ACTIVITY
+        }
+    }
+
     private fun parseImportedAmount(priceText: String?): Double? {
         return ImportedMoneyParser.parseAmount(priceText)
     }
@@ -551,6 +695,15 @@ private data class ImportedFlightExpenseCandidate(
 
 private data class ImportedHotelExpenseCandidate(
     val hotel: com.wanderlog.android.domain.model.ParsedHotel,
+    val amount: Double,
+    val currencyCode: String,
+    val groupKey: String,
+    val expenseId: String
+)
+
+private data class ImportedActivityExpenseCandidate(
+    val activityIndex: Int,
+    val activity: com.wanderlog.android.domain.model.ParsedActivity,
     val amount: Double,
     val currencyCode: String,
     val groupKey: String,

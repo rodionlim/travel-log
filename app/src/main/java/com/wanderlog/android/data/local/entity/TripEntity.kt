@@ -16,7 +16,7 @@ data class TripEntity(
     @ColumnInfo(name = "end_date") val endDate: LocalDate,
     @ColumnInfo(name = "cover_image_uri") val coverImageUri: String? = null,
     @ColumnInfo(name = "budget_amount") val budgetAmount: Double? = null,
-    @ColumnInfo(name = "currency_code") val currencyCode: String = "USD",
+    @ColumnInfo(name = "currency_code") val currencyCode: String = "SGD",
     @ColumnInfo(name = "traveller_names") val travellerProfilesRaw: String = "",
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at") val updatedAt: Long = createdAt,

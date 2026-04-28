@@ -1,5 +1,7 @@
 package com.wanderlog.android.presentation.settings
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +15,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,10 +45,12 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val uriHandler = LocalUriHandler.current
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var parsingModelMenuExpanded by remember { mutableStateOf(false) }
     var budgetCurrencyMenuExpanded by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showOpenAiKeyHelp by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
@@ -133,6 +141,14 @@ fun SettingsScreen(
                 label = { Text("OpenAI API Key") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showOpenAiKeyHelp = true }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
+                            contentDescription = "How to create an OpenAI API key"
+                        )
+                    }
+                },
                 singleLine = true
             )
 
@@ -230,6 +246,18 @@ fun SettingsScreen(
                 showResetConfirm = false
                 viewModel.clearResetMessage()
             }
+        )
+    }
+
+    if (showOpenAiKeyHelp) {
+        OpenAiApiKeyHelpDialog(
+            title = "Create your OpenAI API key",
+            confirmLabel = "Open OpenAI",
+            dismissLabel = "Close",
+            onConfirm = {
+                uriHandler.openUri("https://platform.openai.com/api-keys")
+            },
+            onDismiss = { showOpenAiKeyHelp = false }
         )
     }
 }

@@ -35,7 +35,7 @@ data class TripFormState(
     val endDate: LocalDate = LocalDate.now().plusDays(6),
     val coverImageUri: String? = null,
     val budgetAmount: String = "",
-    val currencyCode: String = "USD",
+    val currencyCode: String = "SGD",
     val travellerCount: String = "1",
     val travellerProfiles: List<TravellerFormProfile> = listOf(TravellerFormProfile(name = "Traveller 1")),
     val isLoading: Boolean = false,

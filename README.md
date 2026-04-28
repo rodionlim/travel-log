@@ -6,15 +6,15 @@ An offline-first Android travel planner. Plan trips, build day-by-day itinerarie
 
 - **Trip management** — create and manage trips with destination, dates, duration, and automatic destination cover images
 - **Traveller-aware trip setup** — set the number of travellers and save a name or alias for each traveller when creating a trip
-- **Itinerary builder** — day-by-day items with drag-to-reorder and swipe-to-delete, plus optional activity costs linked back to Budget
+- **Itinerary builder** — day-by-day items with drag-to-reorder and swipe-to-delete, active accommodation shown separately for the selected day, and optional activity or transport costs linked back to Budget
 - **AI itinerary generation** — describe your trip and get a full itinerary, or let AI choose the best existing days to update
 - **Ask About Trip chat** — have a back-and-forth conversation about the current trip using trip details, itinerary, budget, and packing context, with optional multi-select attachments when you need extra source material
 - **Configurable AI models** — choose separate OpenAI models for itinerary generation and booking image/PDF parsing
-- **File import** — share booking emails or upload one or more PDFs/images/text files; PDFs default to text extraction with an optional rasterize-to-images mode, AI parses them into itinerary items, lets you review/edit extracted details, stores the source documents locally, links imported entries back to the upload, and can remove the related imported items, budget rows, and stored attachment together when you delete an imported entry
+- **File import** — share booking emails, upload one or more PDFs/images/text files, or paste booking text from the clipboard; PDFs default to text extraction with an optional rasterize-to-images mode, AI parses them into itinerary items, lets you review/edit extracted details, stores the source documents locally, links imported entries back to the upload, can create linked transport/accommodation/activity expenses, and can remove the related imported items, budget rows, and stored attachment together when you delete an imported entry
 - **Attachment-aware AI Q&A** — Ask About Trip keeps attachments off by default to save tokens, but you can selectively include one or more saved attachments for a question, and PDFs are sent as extracted text instead of rasterized pages
 - **Attachments vault** — attach markdown notes and files to any trip, with local storage and in-app preview for images, text, and PDFs
-- **Map view** — see all stops on a map with a connecting polyline
-- **Budget tracker** — log and categorise trip expenses, including auto-created transport expenses from imported flight totals and activity expenses linked from the itinerary
+- **Map view** — see all stops on a map with a connecting polyline, including best-effort coordinate resolution for imported places that were saved without map data
+- **Budget tracker** — log and categorise trip expenses, including auto-created transport, accommodation, and activity expenses from imports, plus a separate display currency with approximate offline FX conversion
 - **Packing list** — per-trip checklist with aggregated and per-traveller tabs, plus AI-powered whole-list updates using trip context and a natural-language prompt
 - **Google Places integration** — search and pin locations when adding itinerary items, and fetch trip cover photos automatically
 - **Offline-first sync** — all data is stored locally in a Room database, with an offline sync layer
@@ -25,14 +25,16 @@ Kotlin · Jetpack Compose · MVVM · Clean Architecture · Hilt · Room · Retro
 
 ## Prerequisites
 
-1. **Android Studio** (Hedgehog or later) on Windows with Android SDK installed
+1. **Android Studio** (Hedgehog or later) with Android SDK installed on your machine
 2. `local.properties` in the project root (copy from template):
    ```
-   sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
+   sdk.dir=/path/to/Android/sdk
    MAPS_API_KEY=<your Google Maps API key>
    ```
-3. At runtime, open **Settings** in the app and enter your **OpenAI API key**
-4. In **Settings**, you can also choose separate OpenAI models for general trip generation and booking image/PDF parsing. The runtime Google Maps key helps Places-based search, but the map screen itself still requires `MAPS_API_KEY` in `local.properties` because the Android Maps SDK reads its key from the manifest.
+   On Windows, escape backslashes in `sdk.dir` like `C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk`.
+3. For any AI-related functionality, create an **OpenAI API key** in your OpenAI account before using the app.
+4. At runtime, open **Settings** in the app and enter your **OpenAI API key**.
+5. In **Settings**, you can also choose separate OpenAI models for general trip generation and booking image/PDF parsing, plus a budget display currency (default `SGD`). The runtime Google Maps key helps Places-based search, but the map screen itself still requires `MAPS_API_KEY` in `local.properties` because the Android Maps SDK reads its key from the manifest.
 
 ## Build & Run
 

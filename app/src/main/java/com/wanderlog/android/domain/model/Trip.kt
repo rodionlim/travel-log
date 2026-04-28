@@ -10,7 +10,7 @@ data class Trip(
     val endDate: LocalDate,
     val coverImageUri: String? = null,
     val budgetAmount: Double? = null,
-    val currencyCode: String = "USD",
+    val currencyCode: String = "SGD",
     val travellerProfiles: List<TravellerProfile> = emptyList(),
     val days: List<TripDay> = emptyList()
 ) {

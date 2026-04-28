@@ -437,11 +437,13 @@ class AiRepositoryImpl @Inject constructor(
             For the flight `price`, return the total amount across all passengers for that booking or segment, not a per-person amount.
             If the document lists separate fares, taxes, or passenger totals, sum them into one final total price string.
                         For accommodation bookings, include the total accommodation price and any host phone number or host contact number when it is visible, especially for Airbnb-style stays.
+                        For car rentals and activities, include endDateTime, total price, and booking reference whenever the document shows them.
+                        For car rentals, keep pickupLocation and dropoffLocation separate instead of combining both into one location string.
             Output ONLY valid JSON with this schema:
             {
                             "flights": [{"flightNumber":null,"airline":null,"origin":"","destination":"","departureDateTime":null,"arrivalDateTime":null,"departureTerminal":null,"arrivalTerminal":null,"flightType":null,"price":null,"bookingRef":null}],
                             "hotels": [{"name":"","address":null,"checkIn":null,"checkOut":null,"bookingRef":null,"price":null,"hostPhone":null}],
-              "activities": [{"title":"","location":null,"dateTime":null,"notes":null}]
+                                        "activities": [{"title":"","location":null,"pickupLocation":null,"dropoffLocation":null,"dateTime":null,"endDateTime":null,"price":null,"bookingRef":null,"notes":null}]
             }
         """.trimIndent())
 
@@ -648,7 +650,37 @@ class AiRepositoryImpl @Inject constructor(
                 add(ParsedActivity(
                     title = o.optString("title", ""),
                     location = o.optString("location").takeIf { it.isNotBlank() },
+                    pickupLocation = firstNonBlank(
+                        o.optString("pickupLocation"),
+                        o.optString("pickup_location"),
+                        o.optString("pickupAddress"),
+                        o.optString("pickup_address")
+                    ),
+                    dropoffLocation = firstNonBlank(
+                        o.optString("dropoffLocation"),
+                        o.optString("dropoff_location"),
+                        o.optString("dropOffLocation"),
+                        o.optString("dropOffAddress"),
+                        o.optString("dropoffAddress"),
+                        o.optString("dropoff_address")
+                    ),
                     dateTime = o.optString("dateTime").takeIf { it.isNotBlank() },
+                    endDateTime = firstNonBlank(
+                        o.optString("endDateTime"),
+                        o.optString("end_time"),
+                        o.optString("dropoffDateTime"),
+                        o.optString("dropOffDateTime")
+                    ),
+                    price = firstNonBlank(
+                        o.optString("price"),
+                        o.optString("totalPrice"),
+                        o.optString("total_price")
+                    ),
+                    bookingRef = firstNonBlank(
+                        o.optString("bookingRef"),
+                        o.optString("confirmationNumber"),
+                        o.optString("confirmation_number")
+                    ),
                     notes = o.optString("notes").takeIf { it.isNotBlank() }
                 ))
             }

@@ -41,7 +41,7 @@ data class ItineraryUiState(
     val tripId: String = "",
     val tripName: String = "",
     val tripDestination: String = "",
-    val tripCurrencyCode: String = "USD",
+    val tripCurrencyCode: String = "SGD",
     val tripCoverImageUri: String? = null,
     val linkedExpensesById: Map<String, Expense> = emptyMap(),
     val attachmentCountsByItemId: Map<String, Int> = emptyMap(),
@@ -138,7 +138,7 @@ class TripItineraryViewModel @Inject constructor(
                     s.copy(
                         tripName = trip?.name ?: "",
                         tripDestination = trip?.destination ?: "",
-                        tripCurrencyCode = trip?.currencyCode ?: "USD",
+                        tripCurrencyCode = trip?.currencyCode ?: "SGD",
                         tripCoverImageUri = trip?.coverImageUri,
                         days = days,
                         isLoading = false

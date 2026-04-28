@@ -107,7 +107,9 @@ class ItineraryItemFormViewModel @Inject constructor(
             return
         }
 
-        val shouldLinkExpense = s.itemType == ItineraryItemType.ACTIVITY && parsedCost != null
+        val shouldLinkExpense =
+            (s.itemType == ItineraryItemType.ACTIVITY || s.itemType == ItineraryItemType.TRANSPORT) &&
+                parsedCost != null
         val linkedExpenseId = if (shouldLinkExpense) s.linkedExpenseId ?: UUID.randomUUID().toString() else null
         val item = ItineraryItem(
             id = existingId ?: UUID.randomUUID().toString(),
@@ -148,13 +150,14 @@ class ItineraryItemFormViewModel @Inject constructor(
         itemTitle: String
     ) {
         if (item.itemType == ItineraryItemType.ACTIVITY && amount != null) {
+            val existingExpense = loadedLinkedExpense
             val expense = Expense(
                 id = item.linkedExpenseId ?: UUID.randomUUID().toString(),
                 tripId = item.tripId,
                 title = itemTitle,
                 amount = amount,
-                currencyCode = currencyCode,
-                category = ExpenseCategory.ACTIVITY,
+                currencyCode = existingExpense?.currencyCode ?: currencyCode,
+                category = existingExpense?.category ?: ExpenseCategory.ACTIVITY,
                 date = dayDate
             )
             if (_state.value.linkedExpenseExists && loadedLinkedExpense != null) {

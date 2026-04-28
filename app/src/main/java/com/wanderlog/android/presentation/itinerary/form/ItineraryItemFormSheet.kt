@@ -1,5 +1,6 @@
 package com.wanderlog.android.presentation.itinerary.form
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,7 @@ fun ItineraryItemFormSheet(
     viewModel: ItineraryItemFormViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val expenseCurrencyCode = linkedExpense?.currencyCode ?: currencyCode
 
     LaunchedEffect(editingItem, linkedExpense) {
         if (editingItem != null) viewModel.loadExisting(editingItem, linkedExpense) else viewModel.resetForm()
@@ -81,12 +83,22 @@ fun ItineraryItemFormSheet(
         )
 
         // Type chips
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             ItineraryItemType.values().forEach { type ->
                 FilterChip(
                     selected = state.itemType == type,
                     onClick = { viewModel.onTypeChange(type) },
-                    label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                    label = {
+                        Text(
+                            text = type.name.lowercase().replaceFirstChar { it.uppercase() },
+                            softWrap = false
+                        )
+                    }
                 )
             }
         }
@@ -137,16 +149,16 @@ fun ItineraryItemFormSheet(
             singleLine = true
         )
 
-        if (state.itemType == ItineraryItemType.ACTIVITY) {
+        if (state.itemType == ItineraryItemType.ACTIVITY || state.itemType == ItineraryItemType.TRANSPORT) {
             OutlinedTextField(
                 value = state.costAmount,
                 onValueChange = viewModel::onCostChange,
-                label = { Text("Cost ($currencyCode, optional)") },
+                label = { Text("Cost ($expenseCurrencyCode, optional)") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 supportingText = {
-                    Text("This creates or updates a linked Activity expense in Budget.")
+                    Text("This creates or updates a linked expense in Budget.")
                 }
             )
         }
@@ -154,7 +166,7 @@ fun ItineraryItemFormSheet(
         state.error?.let { Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error) }
 
         Button(
-            onClick = { viewModel.save(tripId, dayId, dayDate, currencyCode, editingItem?.id) },
+            onClick = { viewModel.save(tripId, dayId, dayDate, expenseCurrencyCode, editingItem?.id) },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Save") }
 

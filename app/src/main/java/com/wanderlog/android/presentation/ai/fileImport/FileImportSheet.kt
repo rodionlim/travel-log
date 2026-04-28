@@ -3,7 +3,10 @@ package com.wanderlog.android.presentation.ai.fileImport
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,37 +32,52 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wanderlog.android.domain.model.DocumentHint
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FileImportSheet(
+fun ImportSheet(
     tripId: String,
     onDismiss: () -> Unit,
     viewModel: FileImportViewModel = hiltViewModel()
 ) {
     val step by viewModel.step.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
     var selectedHint by remember { mutableStateOf<DocumentHint?>(null) }
     var rasterizePdfAsImages by remember { mutableStateOf(false) }
     var showPasteTextInput by remember { mutableStateOf(false) }
     var pastedText by remember { mutableStateOf("") }
+    var readyToDismissOnDone by remember { mutableStateOf(false) }
+    var bringImportActionIntoView by remember { mutableStateOf(false) }
+    val importActionBringIntoViewRequester = remember { BringIntoViewRequester() }
 
-    LaunchedEffect(step) {
-        if (step is FileImportStep.Done) onDismiss()
+    LaunchedEffect(Unit) {
+        readyToDismissOnDone = false
+        viewModel.reset()
+        readyToDismissOnDone = true
     }
 
-    val pdfLauncher = rememberLauncherForActivityResult(
+    LaunchedEffect(step, readyToDismissOnDone) {
+        if (readyToDismissOnDone && step is FileImportStep.Done) onDismiss()
+    }
+
+    LaunchedEffect(bringImportActionIntoView) {
+        if (bringImportActionIntoView) {
+            importActionBringIntoViewRequester.bringIntoView()
+            bringImportActionIntoView = false
+        }
+    }
+
+    val fileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { viewModel.parseUri(it, tripId, selectedHint, rasterizePdfAsImages) }
     }
-
-    val imageLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? -> uri?.let { viewModel.parseUri(it, tripId, selectedHint) } }
 
     val multiFileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
@@ -122,25 +140,25 @@ fun FileImportSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Import Multiple Files") }
                 OutlinedButton(
-                    onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Import PDF") }
-                OutlinedButton(onClick = {
-                    imageLauncher.launch(
-                        androidx.activity.result.PickVisualMediaRequest(
-                            androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly
+                    onClick = {
+                        fileLauncher.launch(
+                            arrayOf("application/pdf", "text/plain", "text/csv", "image/*")
                         )
-                    )
-                }, modifier = Modifier.fillMaxWidth()) { Text("Import Image / Screenshot") }
-                OutlinedButton(
-                    onClick = { textLauncher.launch(arrayOf("text/plain", "text/csv")) },
+                    },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Import Text / CSV") }
+                ) { Text("Import File") }
                 OutlinedButton(
-                    onClick = { showPasteTextInput = !showPasteTextInput },
+                    onClick = {
+                        val clipboardText = clipboardManager.getText()?.text.orEmpty()
+                        showPasteTextInput = true
+                        if (clipboardText.isNotBlank()) {
+                            pastedText = clipboardText
+                        }
+                        bringImportActionIntoView = true
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (showPasteTextInput) "Hide Paste Text" else "Paste Text")
+                    Text("Paste from Clipboard")
                 }
                 if (showPasteTextInput) {
                     Text(
@@ -156,7 +174,9 @@ fun FileImportSheet(
                         minLines = 6
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .bringIntoViewRequester(importActionBringIntoViewRequester),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(

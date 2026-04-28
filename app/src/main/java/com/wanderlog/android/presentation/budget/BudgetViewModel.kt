@@ -28,7 +28,7 @@ import com.wanderlog.android.presentation.settings.SettingsViewModel
 data class BudgetUiState(
     val tripName: String = "",
     val budget: Double? = null,
-    val tripCurrencyCode: String = "USD",
+    val tripCurrencyCode: String = "SGD",
     val displayCurrencyCode: String = BudgetDisplayCurrencies.DEFAULT,
     val expenses: List<Expense> = emptyList(),
     val totalSpent: Double = 0.0,
@@ -37,7 +37,7 @@ data class BudgetUiState(
     val filterCategory: ExpenseCategory? = null,
     val addTitle: String = "",
     val addAmount: String = "",
-    val addCurrencyCode: String = "USD",
+    val addCurrencyCode: String = "SGD",
     val addCategory: ExpenseCategory = ExpenseCategory.OTHER,
     val showAddForm: Boolean = false,
     val editingExpenseId: String? = null
@@ -57,7 +57,7 @@ class BudgetViewModel @Inject constructor(
     private val tripId = savedStateHandle.get<String>(Screen.Budget.ARG_TRIP_ID)!!
     private val displayCurrencyCode = SettingsViewModel.getBudgetDisplayCurrency(context)
     private var latestTripBudget: Double? = null
-    private var latestTripCurrencyCode: String = "USD"
+    private var latestTripCurrencyCode: String = "SGD"
 
     private val _state = MutableStateFlow(BudgetUiState())
     val state: StateFlow<BudgetUiState> = _state.asStateFlow()
@@ -66,7 +66,7 @@ class BudgetViewModel @Inject constructor(
         viewModelScope.launch {
             val trip = tripRepository.getTripById(tripId)
             latestTripBudget = trip?.budgetAmount
-            latestTripCurrencyCode = trip?.currencyCode ?: "USD"
+            latestTripCurrencyCode = trip?.currencyCode ?: "SGD"
             recomputeBudgetState(
                 expenses = _state.value.expenses,
                 tripName = trip?.name ?: ""
