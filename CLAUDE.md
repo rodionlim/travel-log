@@ -114,3 +114,10 @@ Settings (from TripList top-bar)
 ```
 
 `TripForm` also captures traveller aliases, `PackingScreen` can show an aggregated checklist plus individual traveller tabs backed by per-traveller packing items, and the itinerary screen surfaces the currently active accommodation separately from the rest of the day's items.
+
+## Workflow Notes
+
+- Before implementing a requested feature or change, check `docs/TODO.md` and any nearby project notes to see whether the work has already been completed.
+- If the requested task appears to already be done, ask the user whether they consider the task completed and whether the related TODO should be removed or updated.
+- Keep the local knowledge base under `docs/knowledge-base/` split by topic instead of growing one large file.
+- Maintain `docs/knowledge-base/NOTES.md` as a dated chronological log of notable feature work, workflow changes, and documentation milestones.
