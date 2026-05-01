@@ -1,6 +1,7 @@
 package com.wanderlog.android.presentation.settings
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
+import java.io.File
 
 private const val PREFS_NAME = "wanderlog_secure"
 const val KEY_OPENAI_API_KEY = "openai_api_key"
@@ -107,18 +109,7 @@ class SettingsViewModel @Inject constructor(
     private val syncTombstoneResetter: SyncTombstoneResetter
 ) : ViewModel() {
 
-    private val prefs by lazy {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
+    private val prefs by lazy { openSecurePrefs(context) }
 
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
@@ -193,47 +184,64 @@ class SettingsViewModel @Inject constructor(
 
     companion object {
         fun getOpenAiKey(context: Context): String {
-            val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            val prefs = EncryptedSharedPreferences.create(context, PREFS_NAME, masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            val prefs = openSecurePrefs(context)
             return prefs.getString(KEY_OPENAI_API_KEY, "") ?: ""
         }
 
         fun getMapsKey(context: Context): String {
-            val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            val prefs = EncryptedSharedPreferences.create(context, PREFS_NAME, masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            val prefs = openSecurePrefs(context)
             return prefs.getString(KEY_MAPS_API_KEY, "") ?: ""
         }
 
         fun getOpenAiModel(context: Context): String {
-            val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            val prefs = EncryptedSharedPreferences.create(context, PREFS_NAME, masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            val prefs = openSecurePrefs(context)
             return OpenAiModels.sanitize(prefs.getString(KEY_OPENAI_MODEL, OpenAiModels.DEFAULT_MODEL))
         }
 
         fun getOpenAiParsingModel(context: Context): String {
-            val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            val prefs = EncryptedSharedPreferences.create(context, PREFS_NAME, masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            val prefs = openSecurePrefs(context)
             return OpenAiModels.sanitizeParsingModel(
                 prefs.getString(KEY_OPENAI_PARSING_MODEL, OpenAiModels.DEFAULT_PARSING_MODEL)
             )
         }
 
         fun getBudgetDisplayCurrency(context: Context): String {
-            val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            val prefs = EncryptedSharedPreferences.create(context, PREFS_NAME, masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            val prefs = openSecurePrefs(context)
             return BudgetDisplayCurrencies.sanitize(
                 prefs.getString(KEY_BUDGET_DISPLAY_CURRENCY, BudgetDisplayCurrencies.DEFAULT)
             )
         }
+    }
+}
+
+private fun openSecurePrefs(context: Context): SharedPreferences {
+    return runCatching {
+        createEncryptedPrefs(context)
+    }.recoverCatching {
+        clearSecurePrefsState(context)
+        createEncryptedPrefs(context)
+    }.getOrElse {
+        // Avoid blocking app startup if the device keystore or restored encrypted prefs are unusable.
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+}
+
+private fun createEncryptedPrefs(context: Context): SharedPreferences {
+    val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+    return EncryptedSharedPreferences.create(
+        context,
+        PREFS_NAME,
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+}
+
+private fun clearSecurePrefsState(context: Context) {
+    runCatching { context.deleteSharedPreferences(PREFS_NAME) }
+    runCatching {
+        File(context.applicationInfo.dataDir, "shared_prefs/$PREFS_NAME.xml").delete()
     }
 }

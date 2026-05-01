@@ -122,8 +122,9 @@ fun ItineraryItemCard(
                     }
                 } else {
                     item.startTime?.let {
-                        val time = if (item.endTime != null) {
-                            "${it.toFriendlyDateTimeOrSelf()} – ${item.endTime.toString().toFriendlyDateTimeOrSelf()}"
+                        val endTime = item.endTime.normalizedDisplayValue()
+                        val time = if (endTime != null) {
+                            "${it.toFriendlyDateTimeOrSelf()} – ${endTime.toFriendlyDateTimeOrSelf()}"
                         } else {
                             it.toFriendlyDateTimeOrSelf()
                         }
@@ -241,6 +242,9 @@ fun ItineraryItemCard(
         }
     }
 }
+
+private fun String?.normalizedDisplayValue(): String? =
+    this?.trim()?.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
 
 @Composable
 private fun FlightScheduleBlock(

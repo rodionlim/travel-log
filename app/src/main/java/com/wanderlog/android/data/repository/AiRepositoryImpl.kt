@@ -474,9 +474,9 @@ class AiRepositoryImpl @Inject constructor(
                                 )
                                 else -> null
                             },
-                            startTime = itemObj.optString("start_time").takeIf { it.isNotBlank() },
-                            endTime = itemObj.optString("end_time").takeIf { it.isNotBlank() },
-                            notes = itemObj.optString("notes").takeIf { it.isNotBlank() },
+                            startTime = itemObj.optNullableString("start_time"),
+                            endTime = itemObj.optNullableString("end_time"),
+                            notes = itemObj.optNullableString("notes"),
                             sortOrder = j
                         )
                     )

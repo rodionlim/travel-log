@@ -149,7 +149,7 @@ fun ItineraryItemFormSheet(
             singleLine = true
         )
 
-        if (state.itemType == ItineraryItemType.ACTIVITY || state.itemType == ItineraryItemType.TRANSPORT) {
+        if (state.itemType.supportsLinkedExpense()) {
             OutlinedTextField(
                 value = state.costAmount,
                 onValueChange = viewModel::onCostChange,
@@ -202,4 +202,13 @@ private fun placeButtonLabel(place: Place?): String? {
         address != null -> address
         else -> null
     }
+}
+
+private fun ItineraryItemType.supportsLinkedExpense(): Boolean = when (this) {
+    ItineraryItemType.ACTIVITY,
+    ItineraryItemType.TRANSPORT,
+    ItineraryItemType.FLIGHT,
+    ItineraryItemType.HOTEL -> true
+
+    else -> false
 }

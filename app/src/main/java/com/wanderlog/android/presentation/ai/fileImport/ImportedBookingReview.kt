@@ -134,7 +134,7 @@ private fun ImportedItemCard(
                 }
             } else {
                 item.startTime?.let { start ->
-                    val timeLabel = item.endTime?.let { end ->
+                    val timeLabel = item.endTime.normalizedDisplayValue()?.let { end ->
                         "${start.toFriendlyDateTimeOrSelf()} -> ${end.toFriendlyDateTimeOrSelf()}"
                     } ?: start.toFriendlyDateTimeOrSelf()
                     Text(timeLabel, style = MaterialTheme.typography.bodySmall)
@@ -163,6 +163,9 @@ private fun ImportedItemCard(
         }
     }
 }
+
+private fun String?.normalizedDisplayValue(): String? =
+    this?.trim()?.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
 
 @Composable
 private fun ReviewFlightScheduleBlock(

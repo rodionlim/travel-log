@@ -31,12 +31,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wanderlog.android.R
 import com.wanderlog.android.core.ui.component.ConfirmDialog
 import com.wanderlog.android.domain.model.Trip
 import com.wanderlog.android.presentation.trips.list.component.TripCard
@@ -54,6 +56,7 @@ fun TripListScreen(
     val trips by viewModel.trips.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var tripToDelete by remember { mutableStateOf<Trip?>(null) }
+    val appName = stringResource(R.string.app_name)
 
     Scaffold(
         topBar = {
@@ -61,7 +64,7 @@ fun TripListScreen(
                 title = {
                     Column {
                         Text(
-                            "Wanderlog",
+                            appName,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )

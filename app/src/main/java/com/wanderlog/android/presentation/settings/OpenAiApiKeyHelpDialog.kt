@@ -7,6 +7,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.wanderlog.android.R
 
 @Composable
 fun OpenAiApiKeyHelpDialog(
@@ -18,6 +20,8 @@ fun OpenAiApiKeyHelpDialog(
     onOpenOpenAi: (() -> Unit)? = null,
     introductoryText: String? = null
 ) {
+    val appName = stringResource(R.string.app_name)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -29,7 +33,7 @@ fun OpenAiApiKeyHelpDialog(
                         append("\n\n")
                     }
                     append("1. Sign in to your OpenAI account and create an API key from the API keys page.\n\n")
-                    append("2. Copy that key and paste it into the OpenAI API Key field in Wanderlog Settings.\n\n")
+                    append("2. Copy that key and paste it into the OpenAI API Key field in $appName Settings.\n\n")
                     append(
                         "Tip: if you enable data sharing in OpenAI under Settings > Data controls > Sharing, OpenAI can grant free daily tokens. That is typically enough to cover this app's normal API usage, as long as you do not upload large images or rasterize PDFs heavily."
                     )

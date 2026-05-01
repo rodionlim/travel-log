@@ -229,8 +229,8 @@ class TripItineraryViewModel @Inject constructor(
             val importAttachmentIds = itineraryItemAttachmentRepository.getAttachmentIdsForItem(
                 item.id,
                 linkType = ItemAttachmentLinkType.IMPORT_SOURCE
-            )
-            val itemsToDelete = importAttachmentIds
+            ).distinct()
+            val importedCandidates = importAttachmentIds
                 .flatMap { attachmentId ->
                     itineraryItemAttachmentRepository.getItemIdsForAttachment(
                         attachmentId,
@@ -239,6 +239,7 @@ class TripItineraryViewModel @Inject constructor(
                 }
                 .distinct()
                 .mapNotNull { itemId -> allTripItems.value.find { candidate -> candidate.id == itemId } }
+            val itemsToDelete = resolveImportedDeleteGroup(item, importedCandidates)
                 .ifEmpty { listOf(item) }
 
             val linkedExpenses = itemsToDelete
@@ -262,13 +263,41 @@ class TripItineraryViewModel @Inject constructor(
 
             itineraryItemAttachmentRepository.deleteLinksForItems(itemsToDelete.map(ItineraryItem::id))
 
-            importAttachmentIds.distinct().forEach { attachmentId ->
-                val attachment = attachmentRepository.getById(attachmentId)
-                if (attachment != null) {
-                    attachmentRepository.delete(attachment)
+            val deletedItemIds = itemsToDelete.map(ItineraryItem::id).toSet()
+            importAttachmentIds.forEach { attachmentId ->
+                val hasRemainingLinkedItems = itineraryItemAttachmentRepository
+                    .getItemIdsForAttachment(attachmentId)
+                    .any { linkedItemId -> linkedItemId !in deletedItemIds }
+                if (!hasRemainingLinkedItems) {
+                    val attachment = attachmentRepository.getById(attachmentId)
+                    if (attachment != null) {
+                        attachmentRepository.delete(attachment)
+                    }
                 }
             }
         }
+    }
+
+    private fun resolveImportedDeleteGroup(
+        item: ItineraryItem,
+        importedCandidates: List<ItineraryItem>
+    ): List<ItineraryItem> {
+        if (importedCandidates.isEmpty()) return emptyList()
+
+        val normalizedBookingRef = item.bookingRef.normalizedBookingRef()
+        val linkedExpenseId = item.linkedExpenseId
+
+        return importedCandidates
+            .filter { candidate ->
+                candidate.id == item.id ||
+                    (linkedExpenseId != null && candidate.linkedExpenseId == linkedExpenseId) ||
+                    (
+                        normalizedBookingRef != null &&
+                            candidate.itemType == item.itemType &&
+                            candidate.bookingRef.normalizedBookingRef() == normalizedBookingRef
+                        )
+            }
+            .distinctBy(ItineraryItem::id)
     }
 
     private fun findLegacyImportedExpenses(items: List<ItineraryItem>): List<Expense> {
@@ -317,3 +346,6 @@ class TripItineraryViewModel @Inject constructor(
         }
     }
 }
+
+private fun String?.normalizedBookingRef(): String? =
+    this?.trim()?.takeIf { it.isNotBlank() }?.lowercase()

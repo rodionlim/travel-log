@@ -1,4 +1,4 @@
-# Wanderlog
+# Wandercraft
 
 [![Android CI](https://github.com/rodionlim/travel-log/actions/workflows/android.yml/badge.svg)](https://github.com/rodionlim/travel-log/actions/workflows/android.yml)
 

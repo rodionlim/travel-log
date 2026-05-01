@@ -1,6 +1,6 @@
-# Wanderlog Knowledge Base
+# Wandercraft Knowledge Base
 
-This knowledge base is a project-local reference for the current Wanderlog codebase. It is split into topic files so the documentation stays navigable and does not accumulate into one oversized note.
+This knowledge base is a project-local reference for the current Wandercraft codebase. It is split into topic files so the documentation stays navigable and does not accumulate into one oversized note.
 
 ## Topics
 

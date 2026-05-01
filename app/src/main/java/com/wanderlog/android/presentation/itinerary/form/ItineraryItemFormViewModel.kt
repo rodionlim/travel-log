@@ -107,9 +107,7 @@ class ItineraryItemFormViewModel @Inject constructor(
             return
         }
 
-        val shouldLinkExpense =
-            (s.itemType == ItineraryItemType.ACTIVITY || s.itemType == ItineraryItemType.TRANSPORT) &&
-                parsedCost != null
+        val shouldLinkExpense = s.itemType.supportsLinkedExpense() && parsedCost != null
         val linkedExpenseId = if (shouldLinkExpense) s.linkedExpenseId ?: UUID.randomUUID().toString() else null
         val item = ItineraryItem(
             id = existingId ?: UUID.randomUUID().toString(),
@@ -149,7 +147,8 @@ class ItineraryItemFormViewModel @Inject constructor(
         dayDate: LocalDate?,
         itemTitle: String
     ) {
-        if (item.itemType == ItineraryItemType.ACTIVITY && amount != null) {
+        val defaultCategory = item.itemType.defaultExpenseCategory()
+        if (defaultCategory != null && amount != null) {
             val existingExpense = loadedLinkedExpense
             val expense = Expense(
                 id = item.linkedExpenseId ?: UUID.randomUUID().toString(),
@@ -157,7 +156,7 @@ class ItineraryItemFormViewModel @Inject constructor(
                 title = itemTitle,
                 amount = amount,
                 currencyCode = existingExpense?.currencyCode ?: currencyCode,
-                category = existingExpense?.category ?: ExpenseCategory.ACTIVITY,
+                category = existingExpense?.category ?: defaultCategory,
                 date = dayDate
             )
             if (_state.value.linkedExpenseExists && loadedLinkedExpense != null) {
@@ -189,4 +188,21 @@ class ItineraryItemFormViewModel @Inject constructor(
 private fun Double.toEditableAmount(): String {
     val wholeNumber = toLong().toDouble() == this
     return if (wholeNumber) toLong().toString() else toString()
+}
+
+private fun ItineraryItemType.supportsLinkedExpense(): Boolean = when (this) {
+    ItineraryItemType.ACTIVITY,
+    ItineraryItemType.TRANSPORT,
+    ItineraryItemType.FLIGHT,
+    ItineraryItemType.HOTEL -> true
+
+    else -> false
+}
+
+private fun ItineraryItemType.defaultExpenseCategory(): ExpenseCategory? = when (this) {
+    ItineraryItemType.ACTIVITY -> ExpenseCategory.ACTIVITY
+    ItineraryItemType.TRANSPORT,
+    ItineraryItemType.FLIGHT -> ExpenseCategory.TRANSPORT
+    ItineraryItemType.HOTEL -> ExpenseCategory.ACCOMMODATION
+    else -> null
 }

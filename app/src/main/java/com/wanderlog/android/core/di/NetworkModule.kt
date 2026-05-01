@@ -67,7 +67,7 @@ object NetworkModule {
         val apiKey = runtimeKey.ifBlank { manifestKey }
 
         require(apiKey.isNotBlank()) {
-            "Google Maps API key is required before using Places. Set it in Settings or local.properties."
+            "A Google Maps API key must be configured in Settings or local.properties before using Places."
         }
 
         if (!Places.isInitialized()) {

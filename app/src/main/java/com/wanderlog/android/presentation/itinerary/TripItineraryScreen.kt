@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -117,8 +118,16 @@ fun TripItineraryScreen(
     var initialPlaceQuery by remember { mutableStateOf<String?>(null) }
     var showFileImport by remember { mutableStateOf(false) }
     var showAddOptions by remember { mutableStateOf(false) }
+    var openFileImportAfterAddOptions by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ItineraryItem?>(null) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showAddOptions, openFileImportAfterAddOptions) {
+        if (!showAddOptions && openFileImportAfterAddOptions) {
+            openFileImportAfterAddOptions = false
+            showFileImport = true
+        }
+    }
 
     val lazyListState = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -171,14 +180,6 @@ fun TripItineraryScreen(
                                 onClick = {
                                     showOverflowMenu = false
                                     onOpenAskTrip()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("AI Generate") },
-                                leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    onOpenAiGenerate()
                                 }
                             )
                             DropdownMenuItem(
@@ -416,11 +417,20 @@ fun TripItineraryScreen(
                 OutlinedButton(
                     onClick = {
                         showAddOptions = false
-                        showFileImport = true
+                        openFileImportAfterAddOptions = true
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Import from file / clipboard")
+                }
+                OutlinedButton(
+                    onClick = {
+                        showAddOptions = false
+                        onOpenAiGenerate()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("AI Generate")
                 }
                 OutlinedButton(
                     onClick = {

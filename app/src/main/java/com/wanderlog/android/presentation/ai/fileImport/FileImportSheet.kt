@@ -33,10 +33,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wanderlog.android.R
 import com.wanderlog.android.domain.model.DocumentHint
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -48,22 +50,25 @@ fun ImportSheet(
 ) {
     val step by viewModel.step.collectAsState()
     val clipboardManager = LocalClipboardManager.current
+    val appName = stringResource(R.string.app_name)
     var selectedHint by remember { mutableStateOf<DocumentHint?>(null) }
     var rasterizePdfAsImages by remember { mutableStateOf(false) }
     var showPasteTextInput by remember { mutableStateOf(false) }
     var pastedText by remember { mutableStateOf("") }
-    var readyToDismissOnDone by remember { mutableStateOf(false) }
+    var previousStep by remember { mutableStateOf<FileImportStep?>(null) }
     var bringImportActionIntoView by remember { mutableStateOf(false) }
     val importActionBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     LaunchedEffect(Unit) {
-        readyToDismissOnDone = false
         viewModel.reset()
-        readyToDismissOnDone = true
     }
 
-    LaunchedEffect(step, readyToDismissOnDone) {
-        if (readyToDismissOnDone && step is FileImportStep.Done) onDismiss()
+    LaunchedEffect(step) {
+        val lastStep = previousStep
+        previousStep = step
+        if (lastStep != null && lastStep !is FileImportStep.Done && step is FileImportStep.Done) {
+            onDismiss()
+        }
     }
 
     LaunchedEffect(bringImportActionIntoView) {
@@ -162,7 +167,7 @@ fun ImportSheet(
                 }
                 if (showPasteTextInput) {
                     Text(
-                        "Paste an email body or any booking text here. This is useful when your mail app cannot share directly into Wanderlog.",
+                        "Paste an email body or any booking text here. This is useful when your mail app cannot share directly into $appName.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -155,9 +155,12 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = state.mapsKey,
                 onValueChange = viewModel::onMapsKeyChange,
-                label = { Text("Google Maps API Key") },
+                label = { Text("Google Maps API Key (optional)") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
+                supportingText = {
+                    Text("Leave this blank to use the manifest key from local.properties.")
+                },
                 singleLine = true
             )
 

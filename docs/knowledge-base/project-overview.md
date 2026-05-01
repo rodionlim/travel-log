@@ -2,7 +2,7 @@
 
 ## Product Summary
 
-Wanderlog is an offline-first Android travel planner built for a single user. The app combines itinerary planning, budgeting, packing, attachments, map views, AI itinerary assistance, and booking import workflows.
+Wandercraft is an offline-first Android travel planner built for a single user. The app combines itinerary planning, budgeting, packing, attachments, map views, AI itinerary assistance, and booking import workflows.
 
 ## Core User Workflows
 
