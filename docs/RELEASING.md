@@ -25,35 +25,35 @@ Without signing secrets the pipeline publishes an **unsigned APK**. Android will
 ### 1. Generate a keystore
 
 ```bash
-keytool -genkey -v -keystore wanderlog.jks \
-  -alias wanderlog -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore wandercraft.jks \
+  -alias wandercraft -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Keep `wanderlog.jks` somewhere safe - **never commit it**.
+Keep `wandercraft.jks` somewhere safe - **never commit it**.
 
 ### 2. Add secrets to GitHub
 
 Go to **repo -> Settings -> Secrets and variables -> Actions** and add:
 
-| Secret              | Value                                 |
-| ------------------- | ------------------------------------- |
-| `KEYSTORE_BASE64`   | base64-encoded `.jks` file            |
-| `KEYSTORE_PASSWORD` | keystore password                     |
-| `KEY_ALIAS`         | alias chosen above (e.g. `wanderlog`) |
-| `KEY_PASSWORD`      | key password                          |
-| `MAPS_API_KEY`      | Google Maps API key (can be blank)    |
+| Secret              | Value                                   |
+| ------------------- | --------------------------------------- |
+| `KEYSTORE_BASE64`   | base64-encoded `.jks` file              |
+| `KEYSTORE_PASSWORD` | keystore password                       |
+| `KEY_ALIAS`         | alias chosen above (e.g. `wandercraft`) |
+| `KEY_PASSWORD`      | key password                            |
+| `MAPS_API_KEY`      | Google Maps API key (can be blank)      |
 
 Generate `KEYSTORE_BASE64` with a single-line value:
 
 ```bash
 # macOS
-base64 < wanderlog.jks | tr -d '\n'
+base64 < wandercraft.jks | tr -d '\n'
 
 # Linux (GNU coreutils)
-base64 -w0 wanderlog.jks
+base64 -w0 wandercraft.jks
 ```
 
-Once set, the next tag push will produce a signed `wanderlog-v<tag>.apk` in the GitHub Release.
+Once set, the next tag push will produce a signed `wandercraft-v<tag>.apk` in the GitHub Release.
 
 ## Re-releasing the current tag
 
@@ -65,7 +65,7 @@ If `v1.0.0` already exists and was released without signing secrets, you have tw
 2. Open the run that was triggered by `v1.0.0`.
 3. Use **Re-run all jobs**.
 
-This rebuilds the same commit with the new secrets. Because the signed asset is named `wanderlog-v1.0.0.apk`, you may end up with both the old unsigned asset and the new signed asset on the same release. Delete the unsigned asset from the GitHub Release page if you want a clean release.
+This rebuilds the same commit with the new secrets. Because the signed asset is named `wandercraft-v1.0.0.apk`, you may end up with both the old unsigned asset and the new signed asset on the same release. Delete the unsigned asset from the GitHub Release page if you want a clean release.
 
 ### Option B: Delete and recreate the same tag
 

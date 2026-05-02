@@ -43,7 +43,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: wanderlog-debug-${{ github.sha }}
+          name: wandercraft-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
 
@@ -94,7 +94,7 @@ jobs:
           BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
           ALIGNED="app/build/outputs/apk/release/app-release-aligned.apk"
-          SIGNED="app/build/outputs/apk/release/wanderlog-${{ github.ref_name }}.apk"
+          SIGNED="app/build/outputs/apk/release/wandercraft-${{ github.ref_name }}.apk"
 
           "$BT/zipalign" -v -p 4 "$UNSIGNED" "$ALIGNED"
           "$BT/apksigner" sign \
@@ -108,7 +108,7 @@ jobs:
       - name: Locate APK to publish
         id: apk
         run: |
-          SIGNED="app/build/outputs/apk/release/wanderlog-${{ github.ref_name }}.apk"
+          SIGNED="app/build/outputs/apk/release/wandercraft-${{ github.ref_name }}.apk"
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
           if [ -f "$SIGNED" ]; then
             echo "path=$SIGNED" >> "$GITHUB_OUTPUT"
@@ -119,6 +119,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Wanderlog ${{ github.ref_name }}"
+          name: "Wandercraft ${{ github.ref_name }}"
           generate_release_notes: true
           files: ${{ steps.apk.outputs.path }}
