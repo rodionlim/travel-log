@@ -22,8 +22,10 @@ import org.json.JSONObject
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.wanderlog.android.BuildConfig
+import com.wanderlog.android.domain.model.sync.SyncEntityType
 import com.wanderlog.android.domain.model.sync.TripSyncBundle
 import com.wanderlog.android.domain.model.sync.TripSyncManifest
+import com.wanderlog.android.domain.model.sync.TripSyncRecord
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -82,7 +84,6 @@ class NearbyTripSyncTransport @Inject constructor(
     private val connectionsClient: ConnectionsClient = Nearby.getConnectionsClient(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val controlAdapter = moshi.adapter(NearbySyncControlMessage::class.java)
-    private val manifestAdapter = moshi.adapter(TripSyncManifest::class.java)
     private val bundleAdapter = moshi.adapter(TripSyncBundle::class.java)
     private val discoveredPeers = linkedMapOf<String, NearbySyncPeer>()
     private val knownEndpointNames = mutableMapOf<String, String>()
@@ -243,11 +244,7 @@ class NearbyTripSyncTransport @Inject constructor(
             return
         }
 
-        val normalizedManifest = if ((manifest.tripId as Any?).normalizedSyncTripId() == remoteTripId) {
-            manifest
-        } else {
-            manifest.copy(tripId = remoteTripId)
-        }
+        val normalizedManifest = manifest.withNormalizedTripId(remoteTripId)
 
         if (tripId == null) {
             _state.update {
@@ -528,10 +525,7 @@ class NearbyTripSyncTransport @Inject constructor(
             val type = root.optString("type").trim().takeIf { it.isNotBlank() } ?: return null
             val controlTripId = root.opt("tripId").normalizedSyncTripId()
             val manifestJson = root.optJSONObject("manifest")
-            val manifest = manifestJson?.let { json ->
-                val normalizedManifestJson = json.normalizeIncomingManifestJson(controlTripId)
-                manifestAdapter.fromJson(normalizedManifestJson.toString())
-            }
+            val manifest = manifestJson?.toIncomingTripSyncManifest(controlTripId)
 
             NearbySyncControlMessage(
                 type = type,
@@ -551,20 +545,128 @@ class NearbyTripSyncTransport @Inject constructor(
 }
 
 private fun Any?.normalizedSyncTripId(): String? =
+    normalizedSyncString()
+
+private fun Any?.normalizedSyncString(): String? =
     (this as? String)?.trim()?.takeIf { it.isNotBlank() }
 
-private fun JSONObject.normalizeIncomingManifestJson(controlTripId: String?): JSONObject = JSONObject(toString()).apply {
+private fun JSONObject.normalizeIncomingManifestJson(controlTripId: String?): JSONObject = apply {
     val normalizedTripId = opt("tripId").normalizedSyncTripId() ?: controlTripId
     if (normalizedTripId != null) {
         put("tripId", normalizedTripId)
     }
-    if (!has("protocolVersion") || isNull("protocolVersion")) {
-        put("protocolVersion", TripSyncManifest.CURRENT_PROTOCOL_VERSION)
-    }
-    if (!has("generatedAt") || isNull("generatedAt")) {
-        put("generatedAt", 0L)
-    }
-    if (!has("records") || isNull("records")) {
+    val normalizedProtocolVersion = optInt("protocolVersion", TripSyncManifest.CURRENT_PROTOCOL_VERSION)
+        .takeIf { it > 0 }
+        ?: TripSyncManifest.CURRENT_PROTOCOL_VERSION
+    put("protocolVersion", normalizedProtocolVersion)
+    put("generatedAt", optLong("generatedAt", 0L))
+    if (opt("records") !is JSONArray) {
         put("records", JSONArray())
     }
 }
+
+internal fun JSONObject.toIncomingTripSyncManifest(controlTripId: String?): TripSyncManifest? {
+    val normalizedJson = normalizeIncomingManifestJson(controlTripId)
+    return buildIncomingTripSyncManifest(
+        controlTripId = controlTripId,
+        tripIdValue = normalizedJson.opt("tripId"),
+        protocolVersionValue = normalizedJson.opt("protocolVersion"),
+        generatedAtValue = normalizedJson.opt("generatedAt"),
+        recordsValue = normalizedJson.opt("records")
+    )
+}
+
+internal fun buildIncomingTripSyncManifest(
+    controlTripId: String?,
+    tripIdValue: Any?,
+    protocolVersionValue: Any?,
+    generatedAtValue: Any?,
+    recordsValue: Any?
+): TripSyncManifest? {
+    val tripId = tripIdValue.normalizedSyncTripId() ?: controlTripId ?: return null
+    return TripSyncManifest(
+        protocolVersion = protocolVersionValue.toPositiveIntOrDefault(TripSyncManifest.CURRENT_PROTOCOL_VERSION),
+        tripId = tripId,
+        generatedAt = generatedAtValue.toLongOrDefault(0L),
+        records = recordsValue.toIncomingTripSyncRecords()
+    )
+}
+
+private fun Any?.toIncomingTripSyncRecords(): List<TripSyncRecord> = when (this) {
+    is JSONArray -> buildList {
+        for (index in 0 until length()) {
+            optJSONObject(index)?.toIncomingTripSyncRecord()?.let(::add)
+        }
+    }
+    is Iterable<*> -> mapNotNull { rawRecord ->
+        (rawRecord as? Map<*, *>)?.toIncomingTripSyncRecord()
+    }
+    else -> emptyList()
+}
+
+private fun JSONObject.toIncomingTripSyncRecord(): TripSyncRecord? {
+    val entityType = opt("entityType").normalizedSyncString()
+        ?.let { value -> runCatching { SyncEntityType.valueOf(value) }.getOrNull() }
+        ?: return null
+    val recordId = opt("id").normalizedSyncString() ?: return null
+
+    return TripSyncRecord(
+        entityType = entityType,
+        id = recordId,
+        updatedAt = optLong("updatedAt", 0L),
+        deletedAt = optNullableLong("deletedAt"),
+        lastModifiedByDeviceId = opt("lastModifiedByDeviceId").normalizedSyncString().orEmpty(),
+        contentHash = opt("contentHash").normalizedSyncString(),
+        sizeBytes = optNullableLong("sizeBytes")
+    )
+}
+
+private fun Map<*, *>.toIncomingTripSyncRecord(): TripSyncRecord? {
+    val entityType = this["entityType"].normalizedSyncString()
+        ?.let { value -> runCatching { SyncEntityType.valueOf(value) }.getOrNull() }
+        ?: return null
+    val recordId = this["id"].normalizedSyncString() ?: return null
+
+    return TripSyncRecord(
+        entityType = entityType,
+        id = recordId,
+        updatedAt = this["updatedAt"].toLongOrDefault(0L),
+        deletedAt = this["deletedAt"].toNullableLong(),
+        lastModifiedByDeviceId = this["lastModifiedByDeviceId"].normalizedSyncString().orEmpty(),
+        contentHash = this["contentHash"].normalizedSyncString(),
+        sizeBytes = this["sizeBytes"].toNullableLong()
+    )
+}
+
+private fun JSONObject.optNullableLong(name: String): Long? = when (val value = opt(name)) {
+    null, JSONObject.NULL -> null
+    is Number -> value.toLong()
+    is String -> value.toLongOrNull()
+    else -> null
+}
+
+private fun Any?.toLongOrDefault(defaultValue: Long): Long = when (this) {
+    is Number -> toLong()
+    is String -> toLongOrNull()
+    else -> null
+} ?: defaultValue
+
+private fun Any?.toPositiveIntOrDefault(defaultValue: Int): Int = when (this) {
+    is Number -> toInt()
+    is String -> toIntOrNull()
+    else -> null
+}?.takeIf { it > 0 } ?: defaultValue
+
+private fun Any?.toNullableLong(): Long? = when (this) {
+    null -> null
+    is Number -> toLong()
+    is String -> toLongOrNull()
+    else -> null
+}
+
+private fun TripSyncManifest.withNormalizedTripId(tripId: String): TripSyncManifest = TripSyncManifest(
+    protocolVersion = protocolVersion,
+    tripId = tripId,
+    generatedAt = generatedAt,
+    records = (records as? List<TripSyncRecord>).orEmpty()
+)
