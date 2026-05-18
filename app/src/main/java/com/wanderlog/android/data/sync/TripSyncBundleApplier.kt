@@ -271,6 +271,7 @@ private fun SyncItineraryItemPayload.toEntity(createdAt: Long): ItineraryItemEnt
     startTime = startTime,
     endTime = endTime,
     notes = notes,
+    rating = rating,
     bookingRef = bookingRef,
     linkedExpenseId = linkedExpenseId,
     confirmationUrl = confirmationUrl,

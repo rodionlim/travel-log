@@ -7,6 +7,7 @@ import com.wanderlog.android.domain.model.Expense
 import com.wanderlog.android.domain.model.ExpenseCategory
 import com.wanderlog.android.domain.model.ItemAttachmentLinkType
 import com.wanderlog.android.domain.model.ItineraryItem
+import com.wanderlog.android.domain.model.ItineraryItemType
 import com.wanderlog.android.domain.model.Trip
 import com.wanderlog.android.domain.model.TripDay
 import com.wanderlog.android.domain.repository.AttachmentRepository
@@ -37,6 +38,16 @@ import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import javax.inject.Inject
 
+enum class ItineraryFilterScope {
+    SELECTED_DAY,
+    WHOLE_TRIP
+}
+
+enum class ItineraryRatingFilterMode {
+    AT_LEAST,
+    AT_MOST
+}
+
 data class ItineraryUiState(
     val tripId: String = "",
     val tripName: String = "",
@@ -47,7 +58,12 @@ data class ItineraryUiState(
     val attachmentCountsByItemId: Map<String, Int> = emptyMap(),
     val importAttachmentCountsByItemId: Map<String, Int> = emptyMap(),
     val days: List<TripDay> = emptyList(),
+    val allTripItems: List<ItineraryItem> = emptyList(),
     val selectedDayIndex: Int = 0,
+    val filterScope: ItineraryFilterScope = ItineraryFilterScope.SELECTED_DAY,
+    val itemTypeFilter: ItineraryItemType? = null,
+    val ratingFilterMode: ItineraryRatingFilterMode? = null,
+    val ratingThreshold: Int? = null,
     val activeHotelsForSelectedDay: List<ItineraryItem> = emptyList(),
     val itemsForSelectedDay: List<ItineraryItem> = emptyList(),
     val isLoading: Boolean = false
@@ -96,6 +112,7 @@ class TripItineraryViewModel @Inject constructor(
         viewModelScope.launch {
             itineraryRepository.getItemsForTrip(tripId).collect { items ->
                 allTripItems.value = items
+                _state.update { it.copy(allTripItems = items) }
                 updateActiveHotelsForSelectedDay(allItems = items)
             }
         }
@@ -175,6 +192,37 @@ class TripItineraryViewModel @Inject constructor(
         _state.update { it.copy(selectedDayIndex = index) }
         selectedDayId.value = _state.value.days.getOrNull(index)?.id
         updateActiveHotelsForSelectedDay(selectedDayIndex = index)
+    }
+
+    fun setFilterScope(scope: ItineraryFilterScope) {
+        _state.update { it.copy(filterScope = scope) }
+    }
+
+    fun filterByItemType(itemType: ItineraryItemType?) {
+        _state.update { it.copy(itemTypeFilter = itemType) }
+    }
+
+    fun clearRatingFilter() {
+        _state.update { it.copy(ratingFilterMode = null, ratingThreshold = null) }
+    }
+
+    fun setRatingFilterMode(mode: ItineraryRatingFilterMode) {
+        _state.update { current ->
+            val nextMode = if (current.ratingFilterMode == mode) null else mode
+            current.copy(
+                ratingFilterMode = nextMode,
+                ratingThreshold = if (nextMode == null) null else current.ratingThreshold ?: 5
+            )
+        }
+    }
+
+    fun setRatingThreshold(threshold: Int) {
+        _state.update {
+            it.copy(
+                ratingFilterMode = it.ratingFilterMode ?: ItineraryRatingFilterMode.AT_LEAST,
+                ratingThreshold = threshold.coerceIn(1, 10)
+            )
+        }
     }
 
     private fun updateActiveHotelsForSelectedDay(

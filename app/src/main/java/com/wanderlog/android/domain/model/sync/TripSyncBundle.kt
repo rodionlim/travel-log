@@ -73,6 +73,7 @@ data class SyncItineraryItemPayload(
     val startTime: String? = null,
     val endTime: String? = null,
     val notes: String? = null,
+    val rating: Int? = null,
     val bookingRef: String? = null,
     val linkedExpenseId: String? = null,
     val confirmationUrl: String? = null,

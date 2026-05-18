@@ -33,6 +33,7 @@ data class ItineraryItemEntity(
     @ColumnInfo(name = "start_time") val startTime: String? = null,
     @ColumnInfo(name = "end_time") val endTime: String? = null,
     val notes: String? = null,
+    val rating: Int? = null,
     @ColumnInfo(name = "booking_ref") val bookingRef: String? = null,
     @ColumnInfo(name = "linked_expense_id") val linkedExpenseId: String? = null,
     @ColumnInfo(name = "confirmation_url") val confirmationUrl: String? = null,
@@ -49,11 +50,12 @@ data class ItineraryItemEntity(
             tripDayId = tripDayId,
             tripId = tripId,
             title = title,
-            itemType = ItineraryItemType.valueOf(itemType),
+            itemType = itemType.toItineraryItemType(),
             place = place,
             startTime = startTime,
             endTime = endTime,
             notes = notes,
+            rating = rating,
             bookingRef = bookingRef,
             linkedExpenseId = linkedExpenseId,
             confirmationUrl = confirmationUrl,
@@ -82,6 +84,7 @@ data class ItineraryItemEntity(
             startTime = item.startTime,
             endTime = item.endTime,
             notes = item.notes,
+            rating = item.rating,
             bookingRef = item.bookingRef,
             linkedExpenseId = item.linkedExpenseId,
             confirmationUrl = item.confirmationUrl,
@@ -93,3 +96,6 @@ data class ItineraryItemEntity(
         )
     }
 }
+
+private fun String.toItineraryItemType(): ItineraryItemType =
+    runCatching { ItineraryItemType.valueOf(this) }.getOrDefault(ItineraryItemType.PLACE)

@@ -19,11 +19,14 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Hotel
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.LocalGroceryStore
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Train
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -186,6 +189,24 @@ fun ItineraryItemCard(
                         maxLines = 1
                     )
                 }
+                item.rating?.let { rating ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "$rating/10",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = accent,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                    }
+                }
                 linkedExpense?.let { expense ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -229,16 +250,7 @@ fun ItineraryItemCard(
                 }
             }
 
-            if (dragHandle != null) {
-                dragHandle()
-            } else {
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    Icons.Default.DragHandle,
-                    contentDescription = "Drag",
-                    tint = MaterialTheme.colorScheme.outlineVariant
-                )
-            }
+            dragHandle?.invoke()
         }
     }
 }
@@ -287,6 +299,9 @@ private fun ItineraryItemType.icon(): ImageVector = when (this) {
     ItineraryItemType.FLIGHT -> Icons.Default.Flight
     ItineraryItemType.HOTEL -> Icons.Default.Hotel
     ItineraryItemType.ACTIVITY -> Icons.Default.Map
+    ItineraryItemType.FOOD -> Icons.Default.Restaurant
+    ItineraryItemType.GROCERIES -> Icons.Default.LocalGroceryStore
+    ItineraryItemType.SHOPPING -> Icons.Default.ShoppingBag
     ItineraryItemType.NOTE -> Icons.AutoMirrored.Filled.Note
     ItineraryItemType.TRANSPORT -> Icons.Default.Train
     ItineraryItemType.PLACE -> Icons.Default.Place
@@ -296,6 +311,9 @@ private fun ItineraryItemType.accent(): Color = when (this) {
     ItineraryItemType.FLIGHT -> Color(0xFF2D7FF9)      // sky blue
     ItineraryItemType.HOTEL -> Color(0xFF8B5CF6)       // purple
     ItineraryItemType.ACTIVITY -> Color(0xFFEF4444)    // red
+    ItineraryItemType.FOOD -> Color(0xFFD97706)        // amber orange
+    ItineraryItemType.GROCERIES -> Color(0xFF16A34A)   // green
+    ItineraryItemType.SHOPPING -> Color(0xFFEC4899)    // pink
     ItineraryItemType.NOTE -> Color(0xFF6B7280)        // slate
     ItineraryItemType.TRANSPORT -> Color(0xFF10B981)   // emerald
     ItineraryItemType.PLACE -> Color(0xFFF59E0B)       // amber

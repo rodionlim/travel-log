@@ -7,7 +7,7 @@ data class TripSyncManifest(
     val records: List<TripSyncRecord>
 ) {
     companion object {
-        const val CURRENT_PROTOCOL_VERSION = 2
+        const val CURRENT_PROTOCOL_VERSION = 5
     }
 }
 

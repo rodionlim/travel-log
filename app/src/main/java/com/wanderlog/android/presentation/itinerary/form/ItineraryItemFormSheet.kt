@@ -109,6 +109,7 @@ fun ItineraryItemFormSheet(
         onStartTimeChange = viewModel::onStartTimeChange,
         onEndTimeChange = viewModel::onEndTimeChange,
         onNotesChange = viewModel::onNotesChange,
+        onRatingChange = viewModel::onRatingChange,
         onBookingRefChange = viewModel::onBookingRefChange,
         onCostChange = viewModel::onCostChange,
         onPlaceButtonClick = {
@@ -140,6 +141,7 @@ internal fun ItineraryItemFormContent(
     onStartTimeChange: (String) -> Unit,
     onEndTimeChange: (String) -> Unit,
     onNotesChange: (String) -> Unit,
+    onRatingChange: (Int?) -> Unit,
     onBookingRefChange: (String) -> Unit,
     onCostChange: (String) -> Unit,
     onPlaceButtonClick: () -> Unit
@@ -248,6 +250,30 @@ internal fun ItineraryItemFormContent(
             minLines = 2
         )
 
+        Text(
+            text = "Rating (1-10 stars, optional)",
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = state.rating == null,
+                onClick = { onRatingChange(null) },
+                label = { Text("No rating") }
+            )
+            (1..10).forEach { rating ->
+                FilterChip(
+                    selected = state.rating == rating,
+                    onClick = { onRatingChange(if (state.rating == rating) null else rating) },
+                    label = { Text(rating.toString()) }
+                )
+            }
+        }
+
         OutlinedTextField(
             value = state.bookingRef,
             onValueChange = onBookingRefChange,
@@ -313,6 +339,9 @@ private fun placeButtonLabel(place: Place?): String? {
 
 private fun ItineraryItemType.supportsLinkedExpense(): Boolean = when (this) {
     ItineraryItemType.ACTIVITY,
+    ItineraryItemType.FOOD,
+    ItineraryItemType.GROCERIES,
+    ItineraryItemType.SHOPPING,
     ItineraryItemType.TRANSPORT,
     ItineraryItemType.FLIGHT,
     ItineraryItemType.HOTEL -> true

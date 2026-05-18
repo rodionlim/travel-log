@@ -362,6 +362,9 @@ class FileImportViewModel @Inject constructor(
         val title = activity.title.lowercase()
         return when {
             "car rental" in title || "rental car" in title || "hire car" in title -> ItineraryItemType.TRANSPORT
+            "restaurant" in title || "breakfast" in title || "brunch" in title || "lunch" in title || "dinner" in title || "supper" in title || "food" in title || "cafe" in title || "coffee" in title -> ItineraryItemType.FOOD
+            "grocery" in title || "groceries" in title || "supermarket" in title || "market run" in title || "produce" in title -> ItineraryItemType.GROCERIES
+            "shopping" in title || "shop" in title || "mall" in title || "market" in title || "boutique" in title || "store" in title || "outlet" in title -> ItineraryItemType.SHOPPING
             else -> ItineraryItemType.ACTIVITY
         }
     }

@@ -30,6 +30,7 @@ data class ItemFormState(
     val startTime: String = "",
     val endTime: String = "",
     val notes: String = "",
+    val rating: Int? = null,
     val bookingRef: String = "",
     val costAmount: String = "",
     val linkedExpenseId: String? = null,
@@ -61,6 +62,7 @@ class ItineraryItemFormViewModel @Inject constructor(
                 startTime = item.startTime ?: "",
                 endTime = item.endTime ?: "",
                 notes = item.notes ?: "",
+                rating = item.rating,
                 bookingRef = item.bookingRef ?: "",
                 costAmount = linkedExpense?.amount?.toEditableAmount().orEmpty(),
                 linkedExpenseId = item.linkedExpenseId,
@@ -82,6 +84,7 @@ class ItineraryItemFormViewModel @Inject constructor(
     fun onStartTimeChange(v: String) = _state.update { it.copy(startTime = v) }
     fun onEndTimeChange(v: String) = _state.update { it.copy(endTime = v) }
     fun onNotesChange(v: String) = _state.update { it.copy(notes = v) }
+    fun onRatingChange(v: Int?) = _state.update { it.copy(rating = v?.coerceIn(1, 10)) }
     fun onBookingRefChange(v: String) = _state.update { it.copy(bookingRef = v) }
     fun onCostChange(v: String) = _state.update { it.copy(costAmount = v) }
 
@@ -109,6 +112,11 @@ class ItineraryItemFormViewModel @Inject constructor(
 
         val shouldLinkExpense = s.itemType.supportsLinkedExpense() && parsedCost != null
         val linkedExpenseId = if (shouldLinkExpense) s.linkedExpenseId ?: UUID.randomUUID().toString() else null
+        val rating = s.rating?.takeIf { it in 1..10 }
+        if (s.rating != null && rating == null) {
+            _state.update { it.copy(error = "Rating must be between 1 and 10.") }
+            return
+        }
         val item = ItineraryItem(
             id = existingId ?: UUID.randomUUID().toString(),
             tripDayId = dayId,
@@ -119,6 +127,7 @@ class ItineraryItemFormViewModel @Inject constructor(
             startTime = s.startTime.takeIf { it.isNotBlank() },
             endTime = s.endTime.takeIf { it.isNotBlank() },
             notes = s.notes.takeIf { it.isNotBlank() },
+            rating = rating,
             bookingRef = s.bookingRef.takeIf { it.isNotBlank() },
             linkedExpenseId = linkedExpenseId
         )
@@ -156,7 +165,7 @@ class ItineraryItemFormViewModel @Inject constructor(
                 title = itemTitle,
                 amount = amount,
                 currencyCode = existingExpense?.currencyCode ?: currencyCode,
-                category = existingExpense?.category ?: defaultCategory,
+                category = defaultCategory,
                 date = dayDate
             )
             if (_state.value.linkedExpenseExists && loadedLinkedExpense != null) {
@@ -192,6 +201,9 @@ private fun Double.toEditableAmount(): String {
 
 private fun ItineraryItemType.supportsLinkedExpense(): Boolean = when (this) {
     ItineraryItemType.ACTIVITY,
+    ItineraryItemType.FOOD,
+    ItineraryItemType.GROCERIES,
+    ItineraryItemType.SHOPPING,
     ItineraryItemType.TRANSPORT,
     ItineraryItemType.FLIGHT,
     ItineraryItemType.HOTEL -> true
@@ -201,6 +213,9 @@ private fun ItineraryItemType.supportsLinkedExpense(): Boolean = when (this) {
 
 private fun ItineraryItemType.defaultExpenseCategory(): ExpenseCategory? = when (this) {
     ItineraryItemType.ACTIVITY -> ExpenseCategory.ACTIVITY
+    ItineraryItemType.FOOD -> ExpenseCategory.FOOD
+    ItineraryItemType.GROCERIES -> ExpenseCategory.GROCERIES
+    ItineraryItemType.SHOPPING -> ExpenseCategory.SHOPPING
     ItineraryItemType.TRANSPORT,
     ItineraryItemType.FLIGHT -> ExpenseCategory.TRANSPORT
     ItineraryItemType.HOTEL -> ExpenseCategory.ACCOMMODATION

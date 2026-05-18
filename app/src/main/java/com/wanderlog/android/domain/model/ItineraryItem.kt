@@ -10,6 +10,7 @@ data class ItineraryItem(
     val startTime: String? = null,
     val endTime: String? = null,
     val notes: String? = null,
+    val rating: Int? = null,
     val bookingRef: String? = null,
     val linkedExpenseId: String? = null,
     val confirmationUrl: String? = null,
@@ -17,5 +18,5 @@ data class ItineraryItem(
 )
 
 enum class ItineraryItemType {
-    PLACE, FLIGHT, HOTEL, ACTIVITY, NOTE, TRANSPORT
+    PLACE, FLIGHT, HOTEL, ACTIVITY, FOOD, GROCERIES, SHOPPING, NOTE, TRANSPORT
 }

@@ -10,6 +10,7 @@ import com.wanderlog.android.core.util.BudgetDisplayCurrencies
 import com.wanderlog.android.domain.model.Expense
 import com.wanderlog.android.domain.model.ExpenseCategory
 import com.wanderlog.android.domain.model.ParsedBudgetExpense
+import com.wanderlog.android.domain.model.TripDay
 import com.wanderlog.android.domain.repository.TripRepository
 import com.wanderlog.android.domain.usecase.ai.ParseBudgetExpensePhotoUseCase
 import com.wanderlog.android.domain.usecase.expense.AddExpenseUseCase
@@ -34,10 +35,15 @@ data class BudgetUiState(
     val budget: Double? = null,
     val tripCurrencyCode: String = "SGD",
     val displayCurrencyCode: String = BudgetDisplayCurrencies.DEFAULT,
+    val tripStartDate: LocalDate? = null,
+    val tripEndDate: LocalDate? = null,
+    val tripDays: List<TripDay> = emptyList(),
     val expenses: List<Expense> = emptyList(),
     val totalSpent: Double = 0.0,
     val convertedBudget: Double? = null,
     val usesApproximateConversion: Boolean = false,
+    val selectedDay: LocalDate? = null,
+    val showUnscheduledOnly: Boolean = false,
     val filterCategory: ExpenseCategory? = null,
     val addTitle: String = "",
     val addAmount: String = "",
@@ -76,8 +82,15 @@ class BudgetViewModel @Inject constructor(
             latestTripCurrencyCode = trip?.currencyCode ?: "SGD"
             recomputeBudgetState(
                 expenses = _state.value.expenses,
-                tripName = trip?.name ?: ""
+                tripName = trip?.name ?: "",
+                tripStartDate = trip?.startDate,
+                tripEndDate = trip?.endDate
             )
+        }
+        viewModelScope.launch {
+            tripRepository.getDaysForTripFlow(tripId).collect { tripDays ->
+                recomputeBudgetState(tripDays = tripDays)
+            }
         }
         viewModelScope.launch {
             getExpenses(tripId).collect { expenses ->
@@ -95,7 +108,8 @@ class BudgetViewModel @Inject constructor(
                 addTitle = "",
                 addAmount = "",
                 addCurrencyCode = latestTripCurrencyCode,
-                addCategory = ExpenseCategory.OTHER
+                addCategory = ExpenseCategory.OTHER,
+                selectedDate = if (it.showUnscheduledOnly) null else it.selectedDay
             )
         } else {
             it.copy(
@@ -104,7 +118,8 @@ class BudgetViewModel @Inject constructor(
                 addTitle = "",
                 addAmount = "",
                 addCurrencyCode = latestTripCurrencyCode,
-                addCategory = ExpenseCategory.OTHER
+                addCategory = ExpenseCategory.OTHER,
+                selectedDate = null
             )
         }
     }
@@ -116,7 +131,8 @@ class BudgetViewModel @Inject constructor(
             addTitle = "",
             addAmount = "",
             addCurrencyCode = latestTripCurrencyCode,
-            addCategory = ExpenseCategory.OTHER
+            addCategory = ExpenseCategory.OTHER,
+            selectedDate = if (it.showUnscheduledOnly) null else it.selectedDay
         )
     }
 
@@ -127,7 +143,8 @@ class BudgetViewModel @Inject constructor(
             addTitle = "",
             addAmount = "",
             addCurrencyCode = latestTripCurrencyCode,
-            addCategory = ExpenseCategory.OTHER
+            addCategory = ExpenseCategory.OTHER,
+            selectedDate = null
         )
     }
     fun onTitleChange(v: String) = _state.update { it.copy(addTitle = v) }
@@ -135,7 +152,10 @@ class BudgetViewModel @Inject constructor(
     fun onCurrencyCodeChange(v: String) = _state.update { it.copy(addCurrencyCode = BudgetDisplayCurrencies.sanitize(v)) }
     fun onCategoryChange(v: ExpenseCategory) = _state.update { it.copy(addCategory = v) }
     fun filterByCategory(cat: ExpenseCategory?) = _state.update { it.copy(filterCategory = cat) }
-    fun onDateChange(date: LocalDate) {
+    fun clearDayFilter() = _state.update { it.copy(selectedDay = null, showUnscheduledOnly = false) }
+    fun filterByDay(date: LocalDate) = _state.update { it.copy(selectedDay = date, showUnscheduledOnly = false) }
+    fun filterByUnscheduled() = _state.update { it.copy(selectedDay = null, showUnscheduledOnly = true) }
+    fun onDateChange(date: LocalDate?) {
         _state.update {
             it.copy(selectedDate = date)
         }
@@ -220,7 +240,8 @@ class BudgetViewModel @Inject constructor(
                 addCurrencyCode = expense.currencyCode,
                 addCategory = expense.category,
                 showAddForm = true,
-                editingExpenseId = expense.id
+                editingExpenseId = expense.id,
+                selectedDate = expense.date
             )
         }
     }
@@ -233,7 +254,8 @@ class BudgetViewModel @Inject constructor(
                 addCurrencyCode = latestTripCurrencyCode,
                 addCategory = ExpenseCategory.OTHER,
                 showAddForm = false,
-                editingExpenseId = null
+                editingExpenseId = null,
+                selectedDate = null
             )
         }
     }
@@ -248,7 +270,8 @@ class BudgetViewModel @Inject constructor(
                 title = s.addTitle.trim(),
                 amount = amount,
                 currencyCode = s.addCurrencyCode,
-                category = s.addCategory
+                category = s.addCategory,
+                date = s.selectedDate
             )
             if (s.editingExpenseId == null) {
                 addExpense(expense)
@@ -262,7 +285,8 @@ class BudgetViewModel @Inject constructor(
                     addCurrencyCode = latestTripCurrencyCode,
                     addCategory = ExpenseCategory.OTHER,
                     showAddForm = false,
-                    editingExpenseId = null
+                    editingExpenseId = null,
+                    selectedDate = null
                 )
             }
         }
@@ -284,8 +308,11 @@ class BudgetViewModel @Inject constructor(
     }
 
     private fun recomputeBudgetState(
-        expenses: List<Expense>,
-        tripName: String = _state.value.tripName
+        expenses: List<Expense> = _state.value.expenses,
+        tripName: String = _state.value.tripName,
+        tripStartDate: LocalDate? = _state.value.tripStartDate,
+        tripEndDate: LocalDate? = _state.value.tripEndDate,
+        tripDays: List<TripDay> = _state.value.tripDays
     ) {
         val total = expenses.sumOf { expense ->
             ApproximateCurrencyConverter.convert(
@@ -312,6 +339,9 @@ class BudgetViewModel @Inject constructor(
                 budget = latestTripBudget,
                 tripCurrencyCode = latestTripCurrencyCode,
                 displayCurrencyCode = displayCurrencyCode,
+                tripStartDate = tripStartDate,
+                tripEndDate = tripEndDate,
+                tripDays = tripDays,
                 expenses = expenses,
                 totalSpent = total,
                 convertedBudget = convertedBudget,

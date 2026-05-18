@@ -31,7 +31,7 @@ import com.wanderlog.android.data.local.entity.TripEntity
         PackingItemEntity::class,
         AttachmentEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(RoomConverters::class)
@@ -225,6 +225,14 @@ abstract class WanderlogDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE attachments ADD COLUMN tags TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE itinerary_items ADD COLUMN rating INTEGER"
                 )
             }
         }

@@ -31,6 +31,7 @@ object DatabaseModule {
             .addMigrations(WanderlogDatabase.MIGRATION_5_6)
             .addMigrations(WanderlogDatabase.MIGRATION_6_7)
             .addMigrations(WanderlogDatabase.MIGRATION_7_8)
+            .addMigrations(WanderlogDatabase.MIGRATION_8_9)
             .fallbackToDestructiveMigration()
             .build()
 

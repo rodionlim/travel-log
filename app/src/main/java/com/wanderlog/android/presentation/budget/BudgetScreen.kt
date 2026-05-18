@@ -50,8 +50,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,13 +64,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wanderlog.android.core.util.ApproximateCurrencyConverter
 import com.wanderlog.android.core.util.BudgetDisplayCurrencies
 import com.wanderlog.android.core.ui.component.WanderTopBar
+import com.wanderlog.android.core.util.generateDateRange
 import com.wanderlog.android.core.util.toCurrencyString
+import com.wanderlog.android.core.util.toDayOfWeekDisplay
+import com.wanderlog.android.core.util.toDisplayString
+import com.wanderlog.android.core.util.toShortDisplay
+import com.wanderlog.android.domain.model.Expense
 import com.wanderlog.android.domain.model.ExpenseCategory
+import com.wanderlog.android.domain.model.TripDay
 import androidx.compose.material3.DatePicker
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -79,29 +84,78 @@ fun BudgetScreen(
     viewModel: BudgetViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val tripStartDate = state.tripStartDate
+    val tripEndDate = state.tripEndDate
+    val selectedDay = state.selectedDay
     var expenseCurrencyMenuExpanded by remember { mutableStateOf(false) }
     var showAddOptions by remember { mutableStateOf(false) }
     var searchVisible by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    val categoryFilteredExpenses = if (state.filterCategory == null) state.expenses
-                            else state.expenses.filter { it.category == state.filterCategory }
-    val displayedExpenses = categoryFilteredExpenses.filter { expense ->
+    val dayOptions = buildBudgetDayOptions(
+        tripDays = state.tripDays,
+        tripStartDate = tripStartDate,
+        tripEndDate = tripEndDate,
+        expenses = state.expenses
+    )
+    val searchFilteredExpenses = state.expenses.filter { expense ->
         matchesBudgetSearch(expense.title, searchQuery) ||
             matchesBudgetSearch(expense.category.name, searchQuery)
     }
-    val displayedTotalSpent = displayedExpenses.sumOf { expense ->
+    val dayScopedExpenses = when {
+        state.showUnscheduledOnly -> searchFilteredExpenses.filter { it.date == null }
+        selectedDay != null -> searchFilteredExpenses.filter { it.date == selectedDay }
+        else -> searchFilteredExpenses
+    }
+    val displayedExpenses = if (state.filterCategory == null) dayScopedExpenses
+    else dayScopedExpenses.filter { it.category == state.filterCategory }
+    val sectionedExpenses = buildBudgetSections(
+        expenses = displayedExpenses,
+        dayOptions = dayOptions,
+        selectedDay = selectedDay,
+        showUnscheduledOnly = state.showUnscheduledOnly,
+        displayCurrencyCode = state.displayCurrencyCode
+    )
+    val scopeSpent = displayedExpenses.sumOf { expense ->
         ApproximateCurrencyConverter.convert(
             amount = expense.amount,
             fromCurrency = expense.currencyCode,
             toCurrency = state.displayCurrencyCode
         )
     }
+    val visibleCategories = ExpenseCategory.values().filter { category ->
+        dayScopedExpenses.any { it.category == category } || state.filterCategory == category
+    }
+    val hasUnscheduledExpenses = state.expenses.any { it.date == null }
+    val tripDayCount = when {
+        state.tripDays.isNotEmpty() -> state.tripDays.size
+        tripStartDate != null && tripEndDate != null ->
+            generateDateRange(tripStartDate, tripEndDate).size
+        else -> 0
+    }
+    val averageDailyBudget = state.convertedBudget?.takeIf { tripDayCount > 0 }?.div(tripDayCount)
+    val selectedScopeLabel = when {
+        state.showUnscheduledOnly -> "Unscheduled"
+        selectedDay != null -> dayOptions.firstOrNull { it.date == selectedDay }?.label
+            ?: selectedDay.toDisplayString()
+        else -> "All days"
+    }
+    val scopeSummary = when {
+        state.showUnscheduledOnly -> "${displayedExpenses.size} unscheduled expense${if (displayedExpenses.size == 1) "" else "s"}"
+        selectedDay != null -> selectedDay.toDayOfWeekDisplay()
+        else -> "${displayedExpenses.size} visible expense${if (displayedExpenses.size == 1) "" else "s"}"
+    }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let(viewModel::startPhotoImport)
+    }
+
+    LaunchedEffect(state.showAddForm, searchVisible) {
+        if (state.showAddForm) {
+            val addFormIndex = if (searchVisible) 5 else 4
+            listState.animateScrollToItem(addFormIndex)
+        }
     }
 
     Scaffold(
@@ -133,11 +187,11 @@ fun BudgetScreen(
         ) {
             item {
                 state.convertedBudget?.let { convertedBudget ->
-                    val progress = (displayedTotalSpent / convertedBudget).coerceIn(0.0, 1.0).toFloat()
+                    val progress = (state.totalSpent / convertedBudget).coerceIn(0.0, 1.0).toFloat()
                     Column {
-                        Text("Spent: ${displayedTotalSpent.toCurrencyString(state.displayCurrencyCode)} / ${convertedBudget.toCurrencyString(state.displayCurrencyCode)}")
+                        Text("Spent: ${state.totalSpent.toCurrencyString(state.displayCurrencyCode)} / ${convertedBudget.toCurrencyString(state.displayCurrencyCode)}")
                         Spacer(Modifier.height(4.dp))
-                        LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                         val originalBudget = state.budget
                         if (originalBudget != null && state.tripCurrencyCode != state.displayCurrencyCode) {
                             Text(
@@ -147,7 +201,7 @@ fun BudgetScreen(
                             )
                         }
                     }
-                } ?: Text("Total spent: ${displayedTotalSpent.toCurrencyString(state.displayCurrencyCode)}")
+                } ?: Text("Total spent: ${state.totalSpent.toCurrencyString(state.displayCurrencyCode)}")
                 Text(
                     "Display currency: ${state.displayCurrencyCode}",
                     style = MaterialTheme.typography.bodySmall,
@@ -166,9 +220,66 @@ fun BudgetScreen(
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     item {
+                        FilterChip(
+                            selected = selectedDay == null && !state.showUnscheduledOnly,
+                            onClick = viewModel::clearDayFilter,
+                            label = { Text("All days") }
+                        )
+                    }
+                    items(dayOptions, key = { it.label }) { day ->
+                        FilterChip(
+                            selected = selectedDay == day.date && !state.showUnscheduledOnly,
+                            onClick = { viewModel.filterByDay(day.date) },
+                            label = { Text(day.label) }
+                        )
+                    }
+                    if (hasUnscheduledExpenses) {
+                        item {
+                            FilterChip(
+                                selected = state.showUnscheduledOnly,
+                                onClick = viewModel::filterByUnscheduled,
+                                label = { Text("Unscheduled") }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(selectedScopeLabel, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            scopeSummary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "Visible spend: ${scopeSpent.toCurrencyString(state.displayCurrencyCode)}",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        averageDailyBudget?.let { dailyBudget ->
+                            Text(
+                                "Average trip-day budget: ${dailyBudget.toCurrencyString(state.displayCurrencyCode)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    item {
                         FilterChip(selected = state.filterCategory == null, onClick = { viewModel.filterByCategory(null) }, label = { Text("All") })
                     }
-                    items(ExpenseCategory.values()) { cat ->
+                    items(visibleCategories) { cat ->
                         FilterChip(
                             selected = state.filterCategory == cat,
                             onClick = { viewModel.filterByCategory(if (state.filterCategory == cat) null else cat) },
@@ -185,7 +296,7 @@ fun BudgetScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Search headers") },
+                        label = { Text("Search expenses") },
                         placeholder = { Text("Try food*, *ticket, or taxi") },
                         singleLine = true,
                         trailingIcon = {
@@ -199,11 +310,6 @@ fun BudgetScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                item {
-                    OutlinedButton(onClick = { showDatePicker = true }) {
-                        Text("Tag Expense to Day")
-                    }
-                }
             }
 
             if (state.showAddForm) {
@@ -246,6 +352,22 @@ fun BudgetScreen(
                                     FilterChip(selected = state.addCategory == cat, onClick = { viewModel.onCategoryChange(cat) }, label = { Text(cat.name.take(4)) })
                                 }
                             }
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Expense date (optional)", style = MaterialTheme.typography.bodySmall)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(onClick = { showDatePicker = true }) {
+                                        Text(state.selectedDate?.toDisplayString() ?: "Select date")
+                                    }
+                                    if (state.selectedDate != null) {
+                                        TextButton(onClick = { viewModel.onDateChange(null) }) {
+                                            Text("Clear")
+                                        }
+                                    }
+                                }
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = viewModel::cancelEditing) { Text("Cancel") }
                                 TextButton(onClick = viewModel::saveExpense) {
@@ -258,70 +380,47 @@ fun BudgetScreen(
                 }
             }
 
-            items(displayedExpenses, key = { it.id }) { expense ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            viewModel.editExpense(expense)
-                            coroutineScope.launch {
-                                listState.animateScrollToItem(0)
-                            }
-                        }
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(expense.title, style = MaterialTheme.typography.titleMedium)
-                            Text(expense.category.name.lowercase().replaceFirstChar { it.uppercase() },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (expense.currencyCode != state.displayCurrencyCode) {
-                                Text(
-                                    "Original: ${expense.amount.toCurrencyString(expense.currencyCode)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        val displayAmount = ApproximateCurrencyConverter.convert(
-                            amount = expense.amount,
-                            fromCurrency = expense.currencyCode,
-                            toCurrency = state.displayCurrencyCode
-                        )
-                        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+            if (sectionedExpenses.isEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("No expenses match this view.", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = displayAmount.toCurrencyString(state.displayCurrencyCode),
-                                style = MaterialTheme.typography.titleMedium
+                                "Try a different day, category, or search term.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (expense.currencyCode != state.displayCurrencyCode) {
+                        }
+                    }
+                }
+            } else {
+                sectionedExpenses.forEach { section ->
+                    item(key = section.key) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(section.title, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    text = "Approx.",
+                                    "${section.totalSpent.toCurrencyString(state.displayCurrencyCode)} • ${section.expenses.size} item${if (section.expenses.size == 1) "" else "s"}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        Spacer(Modifier.width(4.dp))
-                        IconButton(
-                            onClick = { viewModel.duplicateExpense(expense) },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = "Duplicate",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = { viewModel.deleteExpense(expense) },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                    }
+                    items(section.expenses, key = { it.id }) { expense ->
+                        BudgetExpenseCard(
+                            expense = expense,
+                            displayCurrencyCode = state.displayCurrencyCode,
+                            onClick = { viewModel.editExpense(expense) },
+                            onDuplicate = { viewModel.duplicateExpense(expense) },
+                            onDelete = { viewModel.deleteExpense(expense) }
+                        )
                     }
                 }
             }
@@ -425,6 +524,207 @@ fun BudgetScreen(
         }
     }
 }
+
+@Composable
+private fun BudgetExpenseCard(
+    expense: Expense,
+    displayCurrencyCode: String,
+    onClick: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(expense.title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    expense.category.name.lowercase().replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                expense.date?.let { date ->
+                    Text(
+                        date.toDisplayString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (expense.currencyCode != displayCurrencyCode) {
+                    Text(
+                        "Original: ${expense.amount.toCurrencyString(expense.currencyCode)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            val displayAmount = ApproximateCurrencyConverter.convert(
+                amount = expense.amount,
+                fromCurrency = expense.currencyCode,
+                toCurrency = displayCurrencyCode
+            )
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                Text(
+                    text = displayAmount.toCurrencyString(displayCurrencyCode),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (expense.currencyCode != displayCurrencyCode) {
+                    Text(
+                        text = "Approx.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(
+                onClick = onDuplicate,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Duplicate",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+private data class BudgetDayOption(
+    val date: LocalDate,
+    val label: String
+)
+
+private data class BudgetExpenseSection(
+    val key: String,
+    val title: String,
+    val totalSpent: Double,
+    val expenses: List<Expense>
+)
+
+private fun buildBudgetDayOptions(
+    tripDays: List<TripDay>,
+    tripStartDate: LocalDate?,
+    tripEndDate: LocalDate?,
+    expenses: List<Expense>
+): List<BudgetDayOption> {
+    val scheduledDays = if (tripDays.isNotEmpty()) {
+        tripDays.sortedBy(TripDay::dayNumber).map { day ->
+            BudgetDayOption(
+                date = day.date,
+                label = "Day ${day.dayNumber} • ${day.date.toShortDisplay()}"
+            )
+        }
+    } else if (tripStartDate != null && tripEndDate != null) {
+        generateDateRange(tripStartDate, tripEndDate).mapIndexed { index, date ->
+            BudgetDayOption(
+                date = date,
+                label = "Day ${index + 1} • ${date.toShortDisplay()}"
+            )
+        }
+    } else {
+        emptyList()
+    }
+
+    val knownDates = scheduledDays.map(BudgetDayOption::date).toSet()
+    val extraExpenseDays = expenses
+        .mapNotNull(Expense::date)
+        .distinct()
+        .filterNot(knownDates::contains)
+        .sorted()
+        .map { date ->
+            BudgetDayOption(
+                date = date,
+                label = date.toDisplayString()
+            )
+        }
+
+    return scheduledDays + extraExpenseDays
+}
+
+private fun buildBudgetSections(
+    expenses: List<Expense>,
+    dayOptions: List<BudgetDayOption>,
+    selectedDay: LocalDate?,
+    showUnscheduledOnly: Boolean,
+    displayCurrencyCode: String
+): List<BudgetExpenseSection> {
+    if (showUnscheduledOnly) {
+        return expenses.takeIf(List<Expense>::isNotEmpty)?.let { unscheduledExpenses ->
+            listOf(
+                BudgetExpenseSection(
+                    key = "unscheduled",
+                    title = "Unscheduled",
+                    totalSpent = totalInDisplayCurrency(unscheduledExpenses, displayCurrencyCode),
+                    expenses = unscheduledExpenses
+                )
+            )
+        }.orEmpty()
+    }
+
+    if (selectedDay != null) {
+        return expenses.takeIf(List<Expense>::isNotEmpty)?.let { selectedExpenses ->
+            val label = dayOptions.firstOrNull { it.date == selectedDay }?.label ?: selectedDay.toDisplayString()
+            listOf(
+                BudgetExpenseSection(
+                    key = selectedDay.toString(),
+                    title = label,
+                    totalSpent = totalInDisplayCurrency(selectedExpenses, displayCurrencyCode),
+                    expenses = selectedExpenses
+                )
+            )
+        }.orEmpty()
+    }
+
+    val sections = dayOptions.mapNotNull { day ->
+        val dayExpenses = expenses.filter { it.date == day.date }
+        if (dayExpenses.isEmpty()) {
+            null
+        } else {
+            BudgetExpenseSection(
+                key = day.date.toString(),
+                title = day.label,
+                totalSpent = totalInDisplayCurrency(dayExpenses, displayCurrencyCode),
+                expenses = dayExpenses
+            )
+        }
+    }.toMutableList()
+
+    val unscheduledExpenses = expenses.filter { it.date == null }
+    if (unscheduledExpenses.isNotEmpty()) {
+        sections += BudgetExpenseSection(
+            key = "unscheduled",
+            title = "Unscheduled",
+            totalSpent = totalInDisplayCurrency(unscheduledExpenses, displayCurrencyCode),
+            expenses = unscheduledExpenses
+        )
+    }
+
+    return sections
+}
+
+private fun totalInDisplayCurrency(expenses: List<Expense>, displayCurrencyCode: String): Double =
+    expenses.sumOf { expense ->
+        ApproximateCurrencyConverter.convert(
+            amount = expense.amount,
+            fromCurrency = expense.currencyCode,
+            toCurrency = displayCurrencyCode
+        )
+    }
 
 private fun matchesBudgetSearch(value: String, query: String): Boolean {
     val trimmedQuery = query.trim()

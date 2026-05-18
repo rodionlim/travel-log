@@ -129,6 +129,7 @@ private fun ItineraryItemEntity.toSyncPayload(): SyncItineraryItemPayload = Sync
     startTime = startTime,
     endTime = endTime,
     notes = notes,
+    rating = rating,
     bookingRef = bookingRef,
     linkedExpenseId = linkedExpenseId,
     confirmationUrl = confirmationUrl,

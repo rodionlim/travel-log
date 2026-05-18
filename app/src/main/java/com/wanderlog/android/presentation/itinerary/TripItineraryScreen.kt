@@ -3,9 +3,12 @@ package com.wanderlog.android.presentation.itinerary
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,10 +32,12 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -50,7 +55,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,10 +70,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wanderlog.android.core.ui.component.ConfirmDialog
-import com.wanderlog.android.core.ui.component.WanderTopBar
 import com.wanderlog.android.core.ui.component.destinationVisualFor
 import com.wanderlog.android.core.util.toCompactSlashDisplay
 import com.wanderlog.android.domain.model.ItineraryItem
+import com.wanderlog.android.domain.model.ItineraryItemType
 import com.wanderlog.android.domain.model.Place
 import com.wanderlog.android.presentation.ai.fileImport.ImportSheet
 import com.wanderlog.android.presentation.itinerary.component.ItineraryItemCard
@@ -99,17 +106,37 @@ fun TripItineraryScreen(
     val state by viewModel.state.collectAsState()
     val rawItems by viewModel.itemsForDay.collectAsState()
     val uriHandler = LocalUriHandler.current
-    val activeHotels = state.activeHotelsForSelectedDay
-    val items = remember(rawItems) {
-        rawItems.sortedWith(
-            compareBy<ItineraryItem>(
-                { parseItinerarySortTime(it.startTime) == null },
-                { parseItinerarySortTime(it.startTime) },
-                { it.sortOrder },
-                { it.title.lowercase() }
-            )
+    val selectedDayItems = remember(rawItems) { sortItineraryItems(rawItems) }
+    val activeHotels = remember(state.activeHotelsForSelectedDay) { sortItineraryItems(state.activeHotelsForSelectedDay) }
+    val filteredSelectedDayItems = remember(selectedDayItems, state.itemTypeFilter, state.ratingFilterMode, state.ratingThreshold) {
+        filterItineraryItems(
+            items = selectedDayItems,
+            itemTypeFilter = state.itemTypeFilter,
+            ratingFilterMode = state.ratingFilterMode,
+            ratingThreshold = state.ratingThreshold
         )
     }
+    val filteredActiveHotels = remember(activeHotels, state.itemTypeFilter, state.ratingFilterMode, state.ratingThreshold) {
+        filterItineraryItems(
+            items = activeHotels,
+            itemTypeFilter = state.itemTypeFilter,
+            ratingFilterMode = state.ratingFilterMode,
+            ratingThreshold = state.ratingThreshold
+        )
+    }
+    val filteredTripItems = remember(state.allTripItems, state.itemTypeFilter, state.ratingFilterMode, state.ratingThreshold) {
+        filterItineraryItems(
+            items = sortItineraryItems(state.allTripItems),
+            itemTypeFilter = state.itemTypeFilter,
+            ratingFilterMode = state.ratingFilterMode,
+            ratingThreshold = state.ratingThreshold
+        )
+    }
+    val tripSections = remember(filteredTripItems, state.days) {
+        buildTripSections(filteredTripItems, state.days)
+    }
+    val showWholeTripResults = state.filterScope == ItineraryFilterScope.WHOLE_TRIP
+    val canReorderSelectedDay = !showWholeTripResults && state.itemTypeFilter == null && state.ratingFilterMode == null
 
     var showItemForm by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<ItineraryItem?>(null) }
@@ -145,7 +172,7 @@ fun TripItineraryScreen(
 
     val lazyListState = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        val mutable = items.toMutableList()
+        val mutable = selectedDayItems.toMutableList()
         mutable.add(to.index, mutable.removeAt(from.index))
         viewModel.reorderItems(mutable)
     }
@@ -232,7 +259,7 @@ fun TripItineraryScreen(
             } else {
                 val visual = destinationVisualFor(state.tripDestination)
                 val selectedDay = state.days.getOrNull(state.selectedDayIndex) ?: state.days.firstOrNull()
-                androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
                     // Destination hero strip
                     Box(
                         modifier = Modifier
@@ -261,7 +288,7 @@ fun TripItineraryScreen(
                                     )
                             )
                         }
-                        androidx.compose.foundation.layout.Row(
+                        Row(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = 16.dp),
@@ -271,13 +298,13 @@ fun TripItineraryScreen(
                                 visual.emoji,
                                 fontSize = if (state.tripCoverImageUri.isNullOrBlank()) 40.sp else 28.sp
                             )
-                            androidx.compose.foundation.layout.Spacer(Modifier.padding(6.dp))
-                            androidx.compose.foundation.layout.Column {
+                            Spacer(Modifier.padding(6.dp))
+                            Column {
                                 Text(
                                     state.tripDestination.ifBlank { "Your trip" },
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
-                                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                                    style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
                                     buildString {
@@ -291,7 +318,7 @@ fun TripItineraryScreen(
                                         }
                                     },
                                     color = Color.White.copy(alpha = 0.9f),
-                                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall
+                                    style = MaterialTheme.typography.labelSmall
                                 )
                             }
                         }
@@ -307,31 +334,94 @@ fun TripItineraryScreen(
                         }
                     }
 
-                    if (items.isEmpty() && activeHotels.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No items. Tap + to add.")
+                    ItineraryFilters(
+                        state = state,
+                        onScopeSelected = viewModel::setFilterScope,
+                        onTypeSelected = viewModel::filterByItemType,
+                        onClearRatingFilter = viewModel::clearRatingFilter,
+                        onRatingModeSelected = viewModel::setRatingFilterMode,
+                        onRatingThresholdSelected = viewModel::setRatingThreshold
+                    )
+
+                    if (showWholeTripResults) {
+                        if (tripSections.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No items match these filters across the trip.")
+                            }
+                        } else {
+                            LazyColumn(
+                                state = lazyListState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                tripSections.forEach { section ->
+                                    item(key = section.key) {
+                                        Text(
+                                            text = section.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    items(section.items, key = { it.id }) { item ->
+                                        ItineraryItemCard(
+                                            item = item,
+                                            linkedExpense = item.linkedExpenseId?.let(state.linkedExpensesById::get),
+                                            attachmentCount = state.attachmentCountsByItemId[item.id] ?: 0,
+                                            onClick = { openItemForm(item) },
+                                            onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
+                                                { uriHandler.openUri(mapsUrl) }
+                                            },
+                                            onManageAttachments = if ((state.attachmentCountsByItemId[item.id] ?: 0) > 0) {
+                                                { onOpenItemAttachments(item.id) }
+                                            } else {
+                                                null
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else if (filteredSelectedDayItems.isEmpty() && filteredActiveHotels.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No items match these filters for this day.")
                         }
                     } else {
                         LazyColumn(
                             state = lazyListState,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            if (activeHotels.isNotEmpty()) {
+                            if (filteredActiveHotels.isNotEmpty()) {
                                 item(key = "active-hotels-header") {
                                     Text(
                                         text = "Where you're staying",
-                                        style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
-                                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
 
-                                items(activeHotels, key = { "active-hotel-${it.id}" }) { item ->
+                                items(filteredActiveHotels, key = { "active-hotel-${it.id}" }) { item ->
                                     ItineraryItemCard(
                                         item = item,
                                         linkedExpense = item.linkedExpenseId?.let(state.linkedExpensesById::get),
                                         attachmentCount = state.attachmentCountsByItemId[item.id] ?: 0,
+                                        onClick = { openItemForm(item) },
                                         onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
                                             { uriHandler.openUri(mapsUrl) }
                                         },
@@ -343,55 +433,72 @@ fun TripItineraryScreen(
                                     )
                                 }
 
-                                if (items.isNotEmpty()) {
+                                if (filteredSelectedDayItems.isNotEmpty()) {
                                     item(key = "active-hotels-divider") {
                                         HorizontalDivider(
                                             modifier = Modifier.padding(vertical = 4.dp),
-                                            color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant
+                                            color = MaterialTheme.colorScheme.outlineVariant
                                         )
                                     }
                                 }
                             }
 
-                            items(items, key = { it.id }) { item ->
-                                ReorderableItem(reorderableState, key = item.id) { isDragging ->
-                                    val dismissState = rememberSwipeToDismissBoxState(
-                                        confirmValueChange = { value ->
-                                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                                itemToDelete = item
-                                            }
-                                            false // don't dismiss — handled by confirm dialog
-                                        }
-                                    )
-                                    SwipeToDismissBox(
-                                        state = dismissState,
-                                        backgroundContent = {}
-                                    ) {
-                                        ItineraryItemCard(
-                                            item = item,
-                                            linkedExpense = item.linkedExpenseId?.let(state.linkedExpensesById::get),
-                                            attachmentCount = state.attachmentCountsByItemId[item.id] ?: 0,
-                                            onClick = {
-                                                openItemForm(item)
-                                            },
-                                            onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
-                                                { uriHandler.openUri(mapsUrl) }
-                                            },
-                                            onManageAttachments = if ((state.attachmentCountsByItemId[item.id] ?: 0) > 0) {
-                                                { onOpenItemAttachments(item.id) }
-                                            } else {
-                                                null
-                                            },
-                                            dragHandle = {
-                                                Icon(
-                                                    Icons.Default.DragHandle,
-                                                    contentDescription = "Drag",
-                                                    tint = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
-                                                    modifier = Modifier.draggableHandle()
-                                                )
+                            if (canReorderSelectedDay) {
+                                items(filteredSelectedDayItems, key = { it.id }) { item ->
+                                    ReorderableItem(reorderableState, key = item.id) {
+                                        val dismissState = rememberSwipeToDismissBoxState(
+                                            confirmValueChange = { value ->
+                                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                                    itemToDelete = item
+                                                }
+                                                false
                                             }
                                         )
+                                        SwipeToDismissBox(
+                                            state = dismissState,
+                                            backgroundContent = {}
+                                        ) {
+                                            ItineraryItemCard(
+                                                item = item,
+                                                linkedExpense = item.linkedExpenseId?.let(state.linkedExpensesById::get),
+                                                attachmentCount = state.attachmentCountsByItemId[item.id] ?: 0,
+                                                onClick = { openItemForm(item) },
+                                                onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
+                                                    { uriHandler.openUri(mapsUrl) }
+                                                },
+                                                onManageAttachments = if ((state.attachmentCountsByItemId[item.id] ?: 0) > 0) {
+                                                    { onOpenItemAttachments(item.id) }
+                                                } else {
+                                                    null
+                                                },
+                                                dragHandle = {
+                                                    Icon(
+                                                        Icons.Default.DragHandle,
+                                                        contentDescription = "Drag",
+                                                        tint = MaterialTheme.colorScheme.outlineVariant,
+                                                        modifier = Modifier.draggableHandle()
+                                                    )
+                                                }
+                                            )
+                                        }
                                     }
+                                }
+                            } else {
+                                items(filteredSelectedDayItems, key = { it.id }) { item ->
+                                    ItineraryItemCard(
+                                        item = item,
+                                        linkedExpense = item.linkedExpenseId?.let(state.linkedExpensesById::get),
+                                        attachmentCount = state.attachmentCountsByItemId[item.id] ?: 0,
+                                        onClick = { openItemForm(item) },
+                                        onOpenInMaps = item.place?.toGoogleMapsUrl()?.let { mapsUrl ->
+                                            { uriHandler.openUri(mapsUrl) }
+                                        },
+                                        onManageAttachments = if ((state.attachmentCountsByItemId[item.id] ?: 0) > 0) {
+                                            { onOpenItemAttachments(item.id) }
+                                        } else {
+                                            null
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -546,6 +653,183 @@ fun TripItineraryScreen(
             onDismiss = { itemToDelete = null }
         )
     }
+}
+
+@Composable
+private fun ItineraryFilters(
+    state: ItineraryUiState,
+    onScopeSelected: (ItineraryFilterScope) -> Unit,
+    onTypeSelected: (ItineraryItemType?) -> Unit,
+    onClearRatingFilter: () -> Unit,
+    onRatingModeSelected: (ItineraryRatingFilterMode) -> Unit,
+    onRatingThresholdSelected: (Int) -> Unit
+) {
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    val summary = buildList {
+        add(if (state.filterScope == ItineraryFilterScope.WHOLE_TRIP) "Whole trip" else "Selected day")
+        state.itemTypeFilter?.let { itemType ->
+            add(itemType.name.lowercase().replaceFirstChar { it.uppercase() })
+        }
+        if (state.ratingFilterMode != null && state.ratingThreshold != null) {
+            val operator = if (state.ratingFilterMode == ItineraryRatingFilterMode.AT_LEAST) ">=" else "<="
+            add("$operator ${state.ratingThreshold}")
+        }
+    }.joinToString(" • ")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedButton(
+            onClick = { isExpanded = !isExpanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (isExpanded) "Hide filters" else "Show filters")
+        }
+
+        if (!isExpanded) {
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            return@Column
+        }
+
+        Text("View", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = state.filterScope == ItineraryFilterScope.SELECTED_DAY,
+                onClick = { onScopeSelected(ItineraryFilterScope.SELECTED_DAY) },
+                label = { Text("Selected day") }
+            )
+            FilterChip(
+                selected = state.filterScope == ItineraryFilterScope.WHOLE_TRIP,
+                onClick = { onScopeSelected(ItineraryFilterScope.WHOLE_TRIP) },
+                label = { Text("Whole trip") }
+            )
+        }
+
+        Text("Type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = state.itemTypeFilter == null,
+                onClick = { onTypeSelected(null) },
+                label = { Text("All") }
+            )
+            ItineraryItemType.values().forEach { itemType ->
+                FilterChip(
+                    selected = state.itemTypeFilter == itemType,
+                    onClick = { onTypeSelected(if (state.itemTypeFilter == itemType) null else itemType) },
+                    label = { Text(itemType.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                )
+            }
+        }
+
+        Text("Rating", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = state.ratingFilterMode == null,
+                onClick = onClearRatingFilter,
+                label = { Text("Any rating") }
+            )
+            FilterChip(
+                selected = state.ratingFilterMode == ItineraryRatingFilterMode.AT_LEAST,
+                onClick = { onRatingModeSelected(ItineraryRatingFilterMode.AT_LEAST) },
+                label = { Text(">=") }
+            )
+            FilterChip(
+                selected = state.ratingFilterMode == ItineraryRatingFilterMode.AT_MOST,
+                onClick = { onRatingModeSelected(ItineraryRatingFilterMode.AT_MOST) },
+                label = { Text("<=") }
+            )
+        }
+
+        if (state.ratingFilterMode != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                (1..10).forEach { rating ->
+                    FilterChip(
+                        selected = state.ratingThreshold == rating,
+                        onClick = { onRatingThresholdSelected(rating) },
+                        label = { Text(rating.toString()) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class ItineraryDaySection(
+    val key: String,
+    val title: String,
+    val items: List<ItineraryItem>
+)
+
+private fun sortItineraryItems(items: List<ItineraryItem>): List<ItineraryItem> =
+    items.sortedWith(
+        compareBy<ItineraryItem>(
+            { parseItinerarySortTime(it.startTime) == null },
+            { parseItinerarySortTime(it.startTime) },
+            { it.sortOrder },
+            { it.title.lowercase() }
+        )
+    )
+
+private fun filterItineraryItems(
+    items: List<ItineraryItem>,
+    itemTypeFilter: ItineraryItemType?,
+    ratingFilterMode: ItineraryRatingFilterMode?,
+    ratingThreshold: Int?
+): List<ItineraryItem> = items.filter { item ->
+    val typeMatches = itemTypeFilter == null || item.itemType == itemTypeFilter
+    val ratingMatches = when {
+        ratingFilterMode == null || ratingThreshold == null -> true
+        item.rating == null -> false
+        ratingFilterMode == ItineraryRatingFilterMode.AT_LEAST -> item.rating >= ratingThreshold
+        else -> item.rating <= ratingThreshold
+    }
+    typeMatches && ratingMatches
+}
+
+private fun buildTripSections(
+    items: List<ItineraryItem>,
+    days: List<com.wanderlog.android.domain.model.TripDay>
+): List<ItineraryDaySection> {
+    val daysById = days.associateBy { it.id }
+    return items
+        .groupBy { it.tripDayId }
+        .entries
+        .sortedBy { entry -> daysById[entry.key]?.dayNumber ?: Int.MAX_VALUE }
+        .map { (dayId, dayItems) ->
+            val day = daysById[dayId]
+            ItineraryDaySection(
+                key = dayId,
+                title = day?.let { "Day ${it.dayNumber} • ${it.date.toCompactSlashDisplay()}" } ?: "Other items",
+                items = sortItineraryItems(dayItems)
+            )
+        }
 }
 
 private val itineraryTimeFormatters = listOf(

@@ -267,7 +267,7 @@ class AiGenerateViewModel @Inject constructor(
                   \"items\": [
                     {
                       \"title\": \"...\",
-                      \"type\": \"PLACE|HOTEL|ACTIVITY|TRANSPORT|FLIGHT|NOTE\",
+                      \"type\": \"PLACE|HOTEL|ACTIVITY|FOOD|GROCERIES|SHOPPING|TRANSPORT|FLIGHT|NOTE\",
                       \"location\": \"...\",
                       \"start_time\": \"HH:mm\",
                       \"end_time\": \"HH:mm\",
@@ -325,7 +325,7 @@ class AiGenerateViewModel @Inject constructor(
                   \"items\": [
                     {
                       \"title\": \"...\",
-                      \"type\": \"PLACE|HOTEL|ACTIVITY|TRANSPORT|FLIGHT|NOTE\",
+                      \"type\": \"PLACE|HOTEL|ACTIVITY|FOOD|GROCERIES|SHOPPING|TRANSPORT|FLIGHT|NOTE\",
                       \"location\": \"...\",
                       \"start_time\": \"HH:mm\",
                       \"end_time\": \"HH:mm\",

@@ -4,6 +4,7 @@ Chronology files track notable implementation and documentation changes over tim
 
 ## Monthly Notes
 
+- [2026-05](./2026-05.md)
 - [2026-04](./2026-04.md)
 
 ## Usage Rules
