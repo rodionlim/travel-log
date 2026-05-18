@@ -9,6 +9,7 @@ import com.wanderlog.android.data.local.dao.ExpenseDao
 import com.wanderlog.android.data.local.dao.ItineraryItemAttachmentLinkDao
 import com.wanderlog.android.data.local.dao.ItineraryItemDao
 import com.wanderlog.android.data.local.dao.PackingItemDao
+import com.wanderlog.android.data.local.dao.TripNoteDao
 import com.wanderlog.android.data.local.dao.TripDao
 import com.wanderlog.android.data.local.dao.TripDayDao
 import com.wanderlog.android.data.local.entity.AttachmentEntity
@@ -16,6 +17,7 @@ import com.wanderlog.android.data.local.entity.ExpenseEntity
 import com.wanderlog.android.data.local.entity.ItineraryItemAttachmentLinkEntity
 import com.wanderlog.android.data.local.entity.ItineraryItemEntity
 import com.wanderlog.android.data.local.entity.PackingItemEntity
+import com.wanderlog.android.data.local.entity.TripNoteEntity
 import com.wanderlog.android.data.local.entity.TripDayEntity
 import com.wanderlog.android.data.local.entity.TripEntity
 import com.wanderlog.android.domain.model.toStoredAttachmentTags
@@ -24,6 +26,7 @@ import com.wanderlog.android.domain.model.sync.SyncExpensePayload
 import com.wanderlog.android.domain.model.sync.SyncItemAttachmentLinkPayload
 import com.wanderlog.android.domain.model.sync.SyncItineraryItemPayload
 import com.wanderlog.android.domain.model.sync.SyncPackingItemPayload
+import com.wanderlog.android.domain.model.sync.SyncTripNotePayload
 import com.wanderlog.android.domain.model.sync.SyncTripDayPayload
 import com.wanderlog.android.domain.model.sync.SyncTripPayload
 import com.wanderlog.android.domain.model.sync.TripSyncBundle
@@ -51,6 +54,7 @@ class TripSyncBundleApplier @Inject constructor(
     private val itineraryItemAttachmentLinkDao: ItineraryItemAttachmentLinkDao,
     private val expenseDao: ExpenseDao,
     private val packingItemDao: PackingItemDao,
+    private val tripNoteDao: TripNoteDao,
     private val attachmentDao: AttachmentDao,
     @ApplicationContext private val context: Context
 ) {
@@ -85,6 +89,9 @@ class TripSyncBundleApplier @Inject constructor(
         }
         for (packingItem in bundle.packingItems) {
             if (applyPackingItem(packingItem)) applied++ else skipped++
+        }
+        for (tripNote in bundle.tripNotes) {
+            if (applyTripNote(tripNote)) applied++ else skipped++
         }
 
         return TripSyncApplyResult(appliedRecords = applied, skippedRecords = skipped)
@@ -137,6 +144,15 @@ class TripSyncBundleApplier @Inject constructor(
 
         val existing = packingItemDao.getByIdIncludingDeleted(payload.id)
         packingItemDao.insertItem(payload.toEntity(existing?.createdAt ?: payload.metadata.updatedAt))
+        return true
+    }
+
+    private suspend fun applyTripNote(payload: SyncTripNotePayload): Boolean {
+        val local = tripNoteDao.getByIdIncludingDeleted(payload.id)?.toSyncRecord()
+        if (!SyncMergePolicy.shouldApplyIncoming(local, payload.toSyncRecord())) return false
+
+        val existing = tripNoteDao.getByIdIncludingDeleted(payload.id)
+        tripNoteDao.insertNote(payload.toEntity(existing?.createdAt ?: payload.metadata.updatedAt))
         return true
     }
 
@@ -291,6 +307,17 @@ private fun SyncPackingItemPayload.toEntity(createdAt: Long): PackingItemEntity 
     travellerName = travellerName,
     category = category,
     sortOrder = sortOrder,
+    createdAt = createdAt,
+    updatedAt = metadata.updatedAt,
+    deletedAt = metadata.deletedAt,
+    lastModifiedByDeviceId = metadata.lastModifiedByDeviceId
+)
+
+private fun SyncTripNotePayload.toEntity(createdAt: Long): TripNoteEntity = TripNoteEntity(
+    id = id,
+    tripId = tripId,
+    content = content,
+    isGlobal = isGlobal,
     createdAt = createdAt,
     updatedAt = metadata.updatedAt,
     deletedAt = metadata.deletedAt,

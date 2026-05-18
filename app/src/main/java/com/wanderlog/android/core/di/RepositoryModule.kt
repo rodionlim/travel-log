@@ -7,6 +7,7 @@ import com.wanderlog.android.data.repository.ItineraryItemAttachmentRepositoryIm
 import com.wanderlog.android.data.repository.ItineraryRepositoryImpl
 import com.wanderlog.android.data.repository.PackingRepositoryImpl
 import com.wanderlog.android.data.repository.PlacesRepositoryImpl
+import com.wanderlog.android.data.repository.TripNoteRepositoryImpl
 import com.wanderlog.android.data.repository.TripRepositoryImpl
 import com.wanderlog.android.data.sync.DefaultSyncMetadataStamp
 import com.wanderlog.android.data.sync.SyncMetadataStamp
@@ -17,6 +18,7 @@ import com.wanderlog.android.domain.repository.ExpenseRepository
 import com.wanderlog.android.domain.repository.ItineraryRepository
 import com.wanderlog.android.domain.repository.PackingRepository
 import com.wanderlog.android.domain.repository.PlacesRepository
+import com.wanderlog.android.domain.repository.TripNoteRepository
 import com.wanderlog.android.domain.repository.TripRepository
 import dagger.Binds
 import dagger.Module
@@ -32,6 +34,7 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindItineraryRepository(impl: ItineraryRepositoryImpl): ItineraryRepository
     @Binds @Singleton abstract fun bindExpenseRepository(impl: ExpenseRepositoryImpl): ExpenseRepository
     @Binds @Singleton abstract fun bindPackingRepository(impl: PackingRepositoryImpl): PackingRepository
+    @Binds @Singleton abstract fun bindTripNoteRepository(impl: TripNoteRepositoryImpl): TripNoteRepository
     @Binds @Singleton abstract fun bindAiRepository(impl: AiRepositoryImpl): AiRepository
     @Binds @Singleton abstract fun bindPlacesRepository(impl: PlacesRepositoryImpl): PlacesRepository
     @Binds @Singleton abstract fun bindAttachmentRepository(impl: AttachmentRepositoryImpl): AttachmentRepository

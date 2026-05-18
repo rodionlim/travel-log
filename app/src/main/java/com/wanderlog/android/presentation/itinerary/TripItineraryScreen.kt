@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -96,6 +97,7 @@ fun TripItineraryScreen(
     onOpenMap: (String?) -> Unit,
     onOpenBudget: () -> Unit,
     onOpenPacking: () -> Unit,
+    onOpenNotes: () -> Unit,
     onOpenAiGenerate: () -> Unit,
     onOpenAskTrip: () -> Unit,
     onOpenItemAttachments: (String) -> Unit,
@@ -210,6 +212,14 @@ fun TripItineraryScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Notes") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Note, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenNotes()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Ask About Trip") },
                                 leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },

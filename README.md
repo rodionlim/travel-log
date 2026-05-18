@@ -2,24 +2,25 @@
 
 [![Android CI](https://github.com/rodionlim/travel-log/actions/workflows/android.yml/badge.svg)](https://github.com/rodionlim/travel-log/actions/workflows/android.yml)
 
-An offline-first Android travel planner. Plan trips, build day-by-day itineraries, track expenses, manage packing lists, and import booking confirmations using AI.
+An offline-first Android travel planner. Plan trips, build day-by-day itineraries, keep reusable travel notes, track expenses, manage packing lists, and import booking confirmations using AI.
 
 ## Features
 
 - **Trip management** — create and manage trips with destination, dates, duration, and automatic destination cover images
 - **Traveller-aware trip setup** — set the number of travellers and save a name or alias for each traveller when creating a trip
-- **Itinerary builder** — day-by-day items with drag-to-reorder and swipe-to-delete, active accommodation shown separately for the selected day, and optional activity or transport costs linked back to Budget
+- **Itinerary builder** — day-by-day items with drag-to-reorder and swipe-to-delete, active accommodation shown separately for the selected day, optional 1-10 ratings, selected-day or whole-trip filtering by item type or rating, built-in Food, Groceries, and Shopping item types, and optional linked costs back to Budget
 - **AI itinerary generation** — describe your trip and get a full itinerary, or let AI choose the best existing days to update
 - **Ask About Trip chat** — have a back-and-forth conversation about the current trip using trip details, itinerary, budget, and packing context, with optional multi-select attachments when you need extra source material
 - **Configurable AI models** — choose separate OpenAI models for itinerary generation and booking image/PDF parsing
 - **File import** — share booking emails, upload one or more PDFs/images/text files, or paste booking text from the clipboard; PDFs default to text extraction with an optional rasterize-to-images mode, AI parses them into itinerary items, lets you review/edit extracted details, stores the source documents locally, links imported entries back to the upload, can create linked transport/accommodation/activity expenses, and can remove the related imported items, budget rows, and stored attachment together when you delete an imported entry
 - **Attachment-aware AI Q&A** — Ask About Trip keeps attachments off by default to save tokens, but you can selectively include one or more saved attachments for a question, and PDFs are sent as extracted text instead of rasterized pages
 - **Attachments vault** — attach markdown notes and files to any trip, with local storage and in-app preview for images, text, and PDFs
+- **Trip notes and global reminders** — add notes inside any trip, mark selected reminders to appear on the home screen, and keep those trip-linked global notes synced across devices
 - **Map view** — see all stops on a map with a connecting polyline, including best-effort coordinate resolution for imported places that were saved without map data
-- **Budget tracker** — log and categorise trip expenses, including auto-created transport, accommodation, and activity expenses from imports, plus a separate display currency with approximate offline FX conversion
+- **Budget tracker** — log and categorise trip expenses with optional manual dates, a day-by-day grouped view, an `Unscheduled` bucket, primary day and secondary category filters, auto-created transport/accommodation/activity expenses from imports, and a separate display currency with approximate offline FX conversion
 - **Packing list** — per-trip checklist with aggregated and per-traveller tabs, plus AI-powered whole-list updates using trip context and a natural-language prompt
 - **Google Places integration** — search and pin locations when adding itinerary items, and fetch trip cover photos automatically
-- **Offline-first sync** — all data is stored locally in a Room database, with an offline sync layer
+- **Offline-first sync** — all data is stored locally in a Room database, with a nearby device sync layer that now includes trip-linked global notes alongside the rest of each trip's data
 
 ## Tech Stack
 

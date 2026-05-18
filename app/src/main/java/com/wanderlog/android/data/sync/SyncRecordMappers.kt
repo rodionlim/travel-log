@@ -4,6 +4,7 @@ import com.wanderlog.android.data.local.entity.AttachmentEntity
 import com.wanderlog.android.data.local.entity.ExpenseEntity
 import com.wanderlog.android.data.local.entity.ItineraryItemEntity
 import com.wanderlog.android.data.local.entity.PackingItemEntity
+import com.wanderlog.android.data.local.entity.TripNoteEntity
 import com.wanderlog.android.data.local.entity.TripDayEntity
 import com.wanderlog.android.data.local.entity.TripEntity
 import com.wanderlog.android.domain.model.sync.SyncEntityType
@@ -43,6 +44,14 @@ fun ExpenseEntity.toSyncRecord(): TripSyncRecord = TripSyncRecord(
 
 fun PackingItemEntity.toSyncRecord(): TripSyncRecord = TripSyncRecord(
     entityType = SyncEntityType.PACKING_ITEM,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    lastModifiedByDeviceId = lastModifiedByDeviceId
+)
+
+fun TripNoteEntity.toSyncRecord(): TripSyncRecord = TripSyncRecord(
+    entityType = SyncEntityType.TRIP_NOTE,
     id = id,
     updatedAt = updatedAt,
     deletedAt = deletedAt,

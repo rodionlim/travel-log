@@ -11,6 +11,7 @@ data class TripSyncBundle(
     val itemAttachmentLinks: List<SyncItemAttachmentLinkPayload> = emptyList(),
     val expenses: List<SyncExpensePayload> = emptyList(),
     val packingItems: List<SyncPackingItemPayload> = emptyList(),
+    val tripNotes: List<SyncTripNotePayload> = emptyList(),
     val attachments: List<SyncAttachmentPayload> = emptyList()
 ) {
     fun toManifest(): TripSyncManifest = TripSyncManifest(
@@ -24,6 +25,7 @@ data class TripSyncBundle(
             addAll(itemAttachmentLinks.map(SyncItemAttachmentLinkPayload::toManifestRecord))
             addAll(expenses.map(SyncExpensePayload::toManifestRecord))
             addAll(packingItems.map(SyncPackingItemPayload::toManifestRecord))
+            addAll(tripNotes.map(SyncTripNotePayload::toManifestRecord))
             addAll(attachments.map(SyncAttachmentPayload::toManifestRecord))
         }
     )
@@ -115,6 +117,14 @@ data class SyncPackingItemPayload(
     val metadata: SyncMetadata
 )
 
+data class SyncTripNotePayload(
+    val id: String,
+    val tripId: String,
+    val content: String,
+    val isGlobal: Boolean,
+    val metadata: SyncMetadata
+)
+
 data class SyncAttachmentPayload(
     val id: String,
     val tripId: String,
@@ -178,6 +188,14 @@ fun SyncPackingItemPayload.toSyncRecord(): TripSyncRecord = TripSyncRecord(
     lastModifiedByDeviceId = metadata.lastModifiedByDeviceId
 )
 
+fun SyncTripNotePayload.toSyncRecord(): TripSyncRecord = TripSyncRecord(
+    entityType = SyncEntityType.TRIP_NOTE,
+    id = id,
+    updatedAt = metadata.updatedAt,
+    deletedAt = metadata.deletedAt,
+    lastModifiedByDeviceId = metadata.lastModifiedByDeviceId
+)
+
 fun SyncAttachmentPayload.toSyncRecord(): TripSyncRecord = TripSyncRecord(
     entityType = SyncEntityType.ATTACHMENT,
     id = id,
@@ -194,4 +212,5 @@ private fun SyncItineraryItemPayload.toManifestRecord(): TripSyncRecord = toSync
 private fun SyncItemAttachmentLinkPayload.toManifestRecord(): TripSyncRecord = toSyncRecord()
 private fun SyncExpensePayload.toManifestRecord(): TripSyncRecord = toSyncRecord()
 private fun SyncPackingItemPayload.toManifestRecord(): TripSyncRecord = toSyncRecord()
+private fun SyncTripNotePayload.toManifestRecord(): TripSyncRecord = toSyncRecord()
 private fun SyncAttachmentPayload.toManifestRecord(): TripSyncRecord = toSyncRecord()

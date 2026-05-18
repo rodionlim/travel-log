@@ -8,6 +8,7 @@ import com.wanderlog.android.data.local.dao.ExpenseDao
 import com.wanderlog.android.data.local.dao.ItineraryItemAttachmentLinkDao
 import com.wanderlog.android.data.local.dao.ItineraryItemDao
 import com.wanderlog.android.data.local.dao.PackingItemDao
+import com.wanderlog.android.data.local.dao.TripNoteDao
 import com.wanderlog.android.data.local.dao.TripDao
 import com.wanderlog.android.data.local.dao.TripDayDao
 import dagger.Module
@@ -32,6 +33,7 @@ object DatabaseModule {
             .addMigrations(WanderlogDatabase.MIGRATION_6_7)
             .addMigrations(WanderlogDatabase.MIGRATION_7_8)
             .addMigrations(WanderlogDatabase.MIGRATION_8_9)
+            .addMigrations(WanderlogDatabase.MIGRATION_9_10)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -41,5 +43,6 @@ object DatabaseModule {
     @Provides fun provideItineraryItemAttachmentLinkDao(db: WanderlogDatabase): ItineraryItemAttachmentLinkDao = db.itineraryItemAttachmentLinkDao()
     @Provides fun provideExpenseDao(db: WanderlogDatabase): ExpenseDao = db.expenseDao()
     @Provides fun providePackingItemDao(db: WanderlogDatabase): PackingItemDao = db.packingItemDao()
+    @Provides fun provideTripNoteDao(db: WanderlogDatabase): TripNoteDao = db.tripNoteDao()
     @Provides fun provideAttachmentDao(db: WanderlogDatabase): AttachmentDao = db.attachmentDao()
 }

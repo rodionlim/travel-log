@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ fun TripListScreen(
     onCreateTrip: () -> Unit,
     onEditTrip: (String) -> Unit,
     onOpenTrip: (String) -> Unit,
+    onOpenNotes: () -> Unit,
     onOpenSync: () -> Unit,
     onSettings: () -> Unit,
     viewModel: TripListViewModel = hiltViewModel()
@@ -76,6 +78,9 @@ fun TripListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenNotes) {
+                        Icon(Icons.AutoMirrored.Filled.Note, contentDescription = "Global notes")
+                    }
                     IconButton(onClick = onOpenSync) {
                         Icon(Icons.Default.Sync, contentDescription = "Sync trips")
                     }

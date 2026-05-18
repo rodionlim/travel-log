@@ -7,7 +7,7 @@ data class TripSyncManifest(
     val records: List<TripSyncRecord>
 ) {
     companion object {
-        const val CURRENT_PROTOCOL_VERSION = 5
+        const val CURRENT_PROTOCOL_VERSION = 6
     }
 }
 
@@ -39,6 +39,7 @@ enum class SyncEntityType {
     ITEM_ATTACHMENT_LINK,
     EXPENSE,
     PACKING_ITEM,
+    TRIP_NOTE,
     ATTACHMENT
 }
 

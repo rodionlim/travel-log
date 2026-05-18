@@ -11,6 +11,7 @@ import com.wanderlog.android.data.local.dao.ExpenseDao
 import com.wanderlog.android.data.local.dao.ItineraryItemAttachmentLinkDao
 import com.wanderlog.android.data.local.dao.ItineraryItemDao
 import com.wanderlog.android.data.local.dao.PackingItemDao
+import com.wanderlog.android.data.local.dao.TripNoteDao
 import com.wanderlog.android.data.local.dao.TripDao
 import com.wanderlog.android.data.local.dao.TripDayDao
 import com.wanderlog.android.data.local.entity.AttachmentEntity
@@ -18,6 +19,7 @@ import com.wanderlog.android.data.local.entity.ExpenseEntity
 import com.wanderlog.android.data.local.entity.ItineraryItemAttachmentLinkEntity
 import com.wanderlog.android.data.local.entity.ItineraryItemEntity
 import com.wanderlog.android.data.local.entity.PackingItemEntity
+import com.wanderlog.android.data.local.entity.TripNoteEntity
 import com.wanderlog.android.data.local.entity.TripDayEntity
 import com.wanderlog.android.data.local.entity.TripEntity
 
@@ -29,9 +31,10 @@ import com.wanderlog.android.data.local.entity.TripEntity
         ItineraryItemAttachmentLinkEntity::class,
         ExpenseEntity::class,
         PackingItemEntity::class,
+        TripNoteEntity::class,
         AttachmentEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(RoomConverters::class)
@@ -42,6 +45,7 @@ abstract class WanderlogDatabase : RoomDatabase() {
     abstract fun itineraryItemAttachmentLinkDao(): ItineraryItemAttachmentLinkDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun packingItemDao(): PackingItemDao
+    abstract fun tripNoteDao(): TripNoteDao
     abstract fun attachmentDao(): AttachmentDao
 
     companion object {
@@ -233,6 +237,32 @@ abstract class WanderlogDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE itinerary_items ADD COLUMN rating INTEGER"
+                )
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS trip_notes (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        trip_id TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        is_global INTEGER NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        deleted_at INTEGER,
+                        last_modified_by_device_id TEXT NOT NULL,
+                        FOREIGN KEY(trip_id) REFERENCES trips(id) ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_trip_notes_trip_id ON trip_notes(trip_id)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_trip_notes_is_global ON trip_notes(is_global)"
                 )
             }
         }

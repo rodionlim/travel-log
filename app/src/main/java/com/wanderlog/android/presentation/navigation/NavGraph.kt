@@ -20,6 +20,7 @@ import com.wanderlog.android.presentation.budget.BudgetScreen
 import com.wanderlog.android.presentation.itinerary.attachments.ItemAttachmentsScreen
 import com.wanderlog.android.presentation.map.MapScreen
 import com.wanderlog.android.presentation.itinerary.TripItineraryScreen
+import com.wanderlog.android.presentation.notes.TripNotesScreen
 import com.wanderlog.android.presentation.packing.PackingScreen
 import com.wanderlog.android.presentation.settings.OpenAiApiKeyHelpDialog
 import com.wanderlog.android.presentation.settings.SettingsScreen
@@ -50,6 +51,7 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
                 onCreateTrip = { navController.navigate(Screen.TripForm.createRoute()) },
                 onEditTrip = { tripId -> navController.navigate(Screen.TripForm.createRoute(tripId)) },
                 onOpenTrip = { tripId -> navController.navigate(Screen.Itinerary.createRoute(tripId)) },
+                onOpenNotes = { navController.navigate(Screen.Notes.createRoute()) },
                 onOpenSync = { navController.navigate(Screen.TripSync.createRoute()) },
                 onSettings = { navController.navigate(Screen.Settings.route) }
             )
@@ -75,6 +77,7 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
                 onOpenMap = { dayId -> navController.navigate(Screen.Map.createRoute(tripId, dayId)) },
                 onOpenBudget = { navController.navigate(Screen.Budget.createRoute(tripId)) },
                 onOpenPacking = { navController.navigate(Screen.Packing.createRoute(tripId)) },
+                onOpenNotes = { navController.navigate(Screen.Notes.createRoute(tripId)) },
                 onOpenAiGenerate = { navController.navigate(Screen.AiGenerate.createRoute(tripId)) },
                 onOpenAskTrip = { navController.navigate(Screen.AskTrip.createRoute(tripId)) },
                 onOpenItemAttachments = { itemId -> navController.navigate(Screen.ItemAttachments.createRoute(tripId, itemId)) },
@@ -130,6 +133,15 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
             })
         ) {
             TripSyncScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Screen.Notes.route,
+            arguments = listOf(navArgument(Screen.Notes.ARG_TRIP_ID) {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            })
+        ) {
+            TripNotesScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.Settings.route) {
