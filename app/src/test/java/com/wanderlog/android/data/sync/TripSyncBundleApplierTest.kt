@@ -6,6 +6,7 @@ import com.wanderlog.android.data.local.dao.ExpenseDao
 import com.wanderlog.android.data.local.dao.ItineraryItemAttachmentLinkDao
 import com.wanderlog.android.data.local.dao.ItineraryItemDao
 import com.wanderlog.android.data.local.dao.PackingItemDao
+import com.wanderlog.android.data.local.dao.TripNoteDao
 import com.wanderlog.android.data.local.dao.TripDao
 import com.wanderlog.android.data.local.dao.TripDayDao
 import com.wanderlog.android.data.local.entity.AttachmentEntity
@@ -38,6 +39,7 @@ class TripSyncBundleApplierTest {
     private val itineraryItemAttachmentLinkDao = mockk<ItineraryItemAttachmentLinkDao>(relaxed = true)
     private val expenseDao = mockk<ExpenseDao>(relaxed = true)
     private val packingItemDao = mockk<PackingItemDao>(relaxed = true)
+    private val tripNoteDao = mockk<TripNoteDao>(relaxed = true)
     private val attachmentDao = mockk<AttachmentDao>(relaxed = true)
     private val context = mockk<Context>()
 
@@ -52,6 +54,7 @@ class TripSyncBundleApplierTest {
             itineraryItemAttachmentLinkDao = itineraryItemAttachmentLinkDao,
             expenseDao = expenseDao,
             packingItemDao = packingItemDao,
+            tripNoteDao = tripNoteDao,
             attachmentDao = attachmentDao,
             context = context
         )
@@ -111,6 +114,7 @@ class TripSyncBundleApplierTest {
             itineraryItemAttachmentLinkDao = itineraryItemAttachmentLinkDao,
             expenseDao = expenseDao,
             packingItemDao = packingItemDao,
+            tripNoteDao = tripNoteDao,
             attachmentDao = attachmentDao,
             context = context
         )
@@ -179,6 +183,7 @@ class TripSyncBundleApplierTest {
             itineraryItemAttachmentLinkDao = itineraryItemAttachmentLinkDao,
             expenseDao = expenseDao,
             packingItemDao = packingItemDao,
+            tripNoteDao = tripNoteDao,
             attachmentDao = attachmentDao,
             context = context
         )
