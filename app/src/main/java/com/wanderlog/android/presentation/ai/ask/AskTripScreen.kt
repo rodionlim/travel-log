@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
@@ -30,6 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -61,148 +66,168 @@ fun AskTripScreen(
             WanderTopBar(title = "Ask About Trip", onBack = onBack)
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = state.tripName.ifBlank { "Trip" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (state.tripDestination.isNotBlank()) {
-                    Text(
-                        text = state.tripDestination,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    text = "Questions use the trip details, itinerary, budget, and packing list. Attachments stay off by default to save tokens.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (state.estimatedContextTokens > 0 || state.estimatedInputTokens > 0) {
-                    Text(
-                        text = "Approx. prompt tokens: ${state.estimatedContextTokens} context • ${state.estimatedInputTokens} input • ${state.estimatedTotalTokens} total",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            HorizontalDivider()
-
-            if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    state = listState,
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (state.messages.isEmpty()) {
-                        item {
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = "Start a conversation",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        text = "Ask about your itinerary, budget, packing list, or select specific attachments for extra context. PDFs are sent as extracted text.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    itemsIndexed(state.messages) { index, message ->
-                        MessageBubble(message = message, index = index)
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .imePadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    AttachmentPicker(
-                        attachments = state.attachments,
-                        selectedAttachmentIds = state.selectedAttachmentIds,
-                        onToggleAttachment = viewModel::toggleAttachmentSelection
-                    )
-
-                    state.error?.let { error ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = error,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(onClick = viewModel::clearError) {
-                                Text("Dismiss")
-                            }
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = state.draftQuestion,
-                        onValueChange = viewModel::onQuestionChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Ask a question") },
-                        placeholder = { Text("What changes on day 3? Do I already have airport transfers?", style = MaterialTheme.typography.bodyMedium) },
-                        minLines = 3,
-                        maxLines = 6,
-                        enabled = !state.isSending
-                    )
-
-                    Button(
-                        onClick = viewModel::sendQuestion,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !state.isSending && !state.isLoading
-                    ) {
-                        if (state.isSending) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(Modifier.size(8.dp))
-                        }
-                        Text(if (state.isSending) "Asking..." else "Ask About Trip")
-                    }
-                }
-            }
-        }
+        AskTripContent(
+            state = state,
+            listState = listState,
+            modifier = Modifier.padding(padding),
+            onQuestionChange = viewModel::onQuestionChange,
+            onToggleAttachment = viewModel::toggleAttachmentSelection,
+            onSendQuestion = viewModel::sendQuestion,
+            onClearError = viewModel::clearError
+        )
     }
 
     if (state.isSending) {
         LoadingOverlay()
+    }
+}
+
+@Composable
+internal fun AskTripContent(
+    state: AskTripUiState,
+    listState: LazyListState = rememberLazyListState(),
+    modifier: Modifier = Modifier,
+    onQuestionChange: (String) -> Unit,
+    onToggleAttachment: (String) -> Unit,
+    onSendQuestion: () -> Unit,
+    onClearError: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = state.tripName.ifBlank { "Trip" },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (state.tripDestination.isNotBlank()) {
+                Text(
+                    text = state.tripDestination,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "Questions use the trip details, itinerary, budget, and packing list. Attachments stay off by default to save tokens.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (state.estimatedContextTokens > 0 || state.estimatedInputTokens > 0) {
+                Text(
+                    text = "Approx. prompt tokens: ${state.estimatedContextTokens} context • ${state.estimatedInputTokens} input • ${state.estimatedTotalTokens} total",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        HorizontalDivider()
+
+        if (state.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                state = listState,
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (state.messages.isEmpty()) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Start a conversation",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Ask about your itinerary, budget, packing list, or select specific attachments for extra context. PDFs are sent as extracted text.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                itemsIndexed(state.messages) { index, message ->
+                    MessageBubble(message = message, index = index)
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AttachmentPicker(
+                    attachments = state.attachments,
+                    selectedAttachmentIds = state.selectedAttachmentIds,
+                    onToggleAttachment = onToggleAttachment
+                )
+
+                state.error?.let { error ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onClearError) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = state.draftQuestion,
+                    onValueChange = onQuestionChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Ask a question") },
+                    placeholder = { Text("What changes on day 3? Do I already have airport transfers?", style = MaterialTheme.typography.bodyMedium) },
+                    minLines = 3,
+                    maxLines = 6,
+                    enabled = !state.isSending
+                )
+
+                Button(
+                    onClick = onSendQuestion,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isSending && !state.isLoading
+                ) {
+                    if (state.isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(Modifier.size(8.dp))
+                    }
+                    Text(if (state.isSending) "Asking..." else "Ask About Trip")
+                }
+            }
+        }
     }
 }
 
@@ -212,16 +237,36 @@ private fun AttachmentPicker(
     selectedAttachmentIds: Set<String>,
     onToggleAttachment: (String) -> Unit
 ) {
+    var isExpanded by rememberSaveable(attachments.isEmpty()) { mutableStateOf(attachments.isEmpty()) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                text = "Optional attachments",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Optional attachments",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (attachments.isNotEmpty()) {
+                    TextButton(onClick = { isExpanded = !isExpanded }) {
+                        Text(
+                            text = if (isExpanded) {
+                                "Hide attachments"
+                            } else {
+                                "Show attachments (${attachments.size})"
+                            }
+                        )
+                    }
+                }
+            }
             Text(
                 text = "Leave these off unless you need them. Selected PDFs are sent as extracted text, not rasterized images.",
                 style = MaterialTheme.typography.bodySmall,
@@ -234,15 +279,31 @@ private fun AttachmentPicker(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            } else if (!isExpanded) {
+                Text(
+                    text = if (selectedAttachmentIds.isEmpty()) {
+                        "Attachments are collapsed. Expand this section to review or include them."
+                    } else {
+                        "${selectedAttachmentIds.size} selected. Expand this section to review or change them."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
-                attachments.forEachIndexed { index, attachment ->
-                    AttachmentToggleRow(
-                        attachment = attachment,
-                        selected = attachment.id in selectedAttachmentIds,
-                        onToggle = { onToggleAttachment(attachment.id) }
-                    )
-                    if (index != attachments.lastIndex) {
-                        HorizontalDivider()
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 220.dp)
+                ) {
+                    itemsIndexed(attachments, key = { _, attachment -> attachment.id }) { index, attachment ->
+                        AttachmentToggleRow(
+                            attachment = attachment,
+                            selected = attachment.id in selectedAttachmentIds,
+                            onToggle = { onToggleAttachment(attachment.id) }
+                        )
+                        if (index != attachments.lastIndex) {
+                            HorizontalDivider()
+                        }
                     }
                 }
             }

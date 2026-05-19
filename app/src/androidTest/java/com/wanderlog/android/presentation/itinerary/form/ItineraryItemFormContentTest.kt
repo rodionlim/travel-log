@@ -65,6 +65,7 @@ class ItineraryItemFormContentTest {
                     onStartTimeChange = {},
                     onEndTimeChange = {},
                     onNotesChange = {},
+                    onRatingChange = {},
                     onBookingRefChange = {},
                     onCostChange = {},
                     onPlaceButtonClick = {}
