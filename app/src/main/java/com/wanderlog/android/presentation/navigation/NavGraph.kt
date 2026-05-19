@@ -27,6 +27,7 @@ import com.wanderlog.android.presentation.settings.SettingsScreen
 import com.wanderlog.android.presentation.settings.SettingsViewModel
 import com.wanderlog.android.presentation.share.ShareImportScreen
 import com.wanderlog.android.presentation.sync.TripSyncScreen
+import com.wanderlog.android.presentation.tripPhotos.TripPhotosScreen
 import com.wanderlog.android.presentation.trips.form.TripFormScreen
 import com.wanderlog.android.presentation.trips.list.TripListScreen
 
@@ -80,10 +81,18 @@ fun WanderlogNavGraph(startAtShare: Boolean = false) {
                 onOpenNotes = { navController.navigate(Screen.Notes.createRoute(tripId)) },
                 onOpenAiGenerate = { navController.navigate(Screen.AiGenerate.createRoute(tripId)) },
                 onOpenAskTrip = { navController.navigate(Screen.AskTrip.createRoute(tripId)) },
+                onOpenPhotos = { navController.navigate(Screen.TripPhotos.createRoute(tripId)) },
                 onOpenItemAttachments = { itemId -> navController.navigate(Screen.ItemAttachments.createRoute(tripId, itemId)) },
                 onOpenSync = { navController.navigate(Screen.TripSync.createRoute(tripId)) },
                 onOpenAttachments = { pickOnOpen -> navController.navigate(Screen.Attachments.createRoute(tripId, pickOnOpen)) },
             )
+        }
+
+        composable(
+            route = Screen.TripPhotos.route,
+            arguments = listOf(navArgument(Screen.TripPhotos.ARG_TRIP_ID) { type = NavType.StringType })
+        ) {
+            TripPhotosScreen(onBack = { navController.popBackStack() })
         }
 
         composable(
