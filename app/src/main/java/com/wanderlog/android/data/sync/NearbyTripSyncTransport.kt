@@ -87,8 +87,8 @@ class NearbyTripSyncTransport @Inject constructor(
     private val connectionsClient: ConnectionsClient by lazy(LazyThreadSafetyMode.NONE) {
         Nearby.getConnectionsClient(context)
     }
-    private val controlAdapter: JsonAdapter<NearbySyncControlMessage> by lazy(LazyThreadSafetyMode.NONE) {
-        moshi.adapter(NearbySyncControlMessage::class.java)
+    private val controlPayloadAdapter: JsonAdapter<Map<String, Any?>> by lazy(LazyThreadSafetyMode.NONE) {
+        moshi.adapter(Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java))
     }
     private val bundleAdapter: JsonAdapter<TripSyncBundle> by lazy(LazyThreadSafetyMode.NONE) {
         moshi.adapter(TripSyncBundle::class.java)
@@ -222,7 +222,7 @@ class NearbyTripSyncTransport @Inject constructor(
             tripId = tripId,
             manifest = manifest
         )
-        val bytes = controlAdapter.toJson(message).encodeToByteArray()
+        val bytes = serializeOutgoingControlPayload(message, controlPayloadAdapter).encodeToByteArray()
         connectionsClient.sendPayload(endpointId, Payload.fromBytes(bytes)).await()
         appendLog("Sent manifest to ${knownEndpointNames[endpointId] ?: endpointId}")
     }
@@ -485,7 +485,10 @@ class NearbyTripSyncTransport @Inject constructor(
                     val bytes = payload.asBytes() ?: return
                     scope.launch {
                         runCatching {
-                            val message = parseIncomingControlMessage(bytes.decodeToString())
+                            val message = parseIncomingControlPayload(
+                                payload = bytes.decodeToString(),
+                                controlPayloadAdapter = controlPayloadAdapter
+                            )
                             if (message?.type == CONTROL_TYPE_MANIFEST && message.manifest != null) {
                                 handleReceivedManifest(
                                     endpointId = endpointId,
@@ -538,23 +541,6 @@ class NearbyTripSyncTransport @Inject constructor(
         else -> status.statusMessage ?: "status ${status.statusCode}"
     }
 
-    private fun parseIncomingControlMessage(payload: String): NearbySyncControlMessage? =
-        runCatching {
-            val root = JSONObject(payload)
-            val type = root.optString("type").trim().takeIf { it.isNotBlank() } ?: return null
-            val controlTripId = root.opt("tripId").normalizedSyncTripId()
-            val manifestJson = root.optJSONObject("manifest")
-            val manifest = manifestJson?.toIncomingTripSyncManifest(controlTripId)
-
-            NearbySyncControlMessage(
-                type = type,
-                tripId = controlTripId
-                    ?: manifest?.tripId
-                    ?: "",
-                manifest = manifest
-            )
-        }.getOrNull()
-
     private companion object {
         const val MAX_LOG_LINES = 20
         const val CONTROL_TYPE_MANIFEST = "manifest"
@@ -569,31 +555,64 @@ private fun Any?.normalizedSyncTripId(): String? =
 private fun Any?.normalizedSyncString(): String? =
     (this as? String)?.trim()?.takeIf { it.isNotBlank() }
 
-private fun JSONObject.normalizeIncomingManifestJson(controlTripId: String?): JSONObject = apply {
-    val normalizedTripId = opt("tripId").normalizedSyncTripId() ?: controlTripId
-    if (normalizedTripId != null) {
-        put("tripId", normalizedTripId)
+internal fun parseIncomingControlPayload(
+    payload: String,
+    controlPayloadAdapter: JsonAdapter<Map<String, Any?>>
+): NearbySyncControlMessage? {
+    val payloadMap = controlPayloadAdapter.fromJson(payload) ?: return null
+    val type = payloadMap["type"].normalizedSyncString() ?: return null
+    val controlTripId = payloadMap["tripId"].normalizedSyncTripId()
+    val manifest = when (val manifestValue = payloadMap["manifest"]) {
+        is Map<*, *> -> manifestValue.toIncomingTripSyncManifest(controlTripId)
+        else -> null
     }
-    val normalizedProtocolVersion = optInt("protocolVersion", TripSyncManifest.CURRENT_PROTOCOL_VERSION)
-        .takeIf { it > 0 }
-        ?: TripSyncManifest.CURRENT_PROTOCOL_VERSION
-    put("protocolVersion", normalizedProtocolVersion)
-    put("generatedAt", optLong("generatedAt", 0L))
-    if (opt("records") !is JSONArray) {
-        put("records", JSONArray())
-    }
-}
 
-internal fun JSONObject.toIncomingTripSyncManifest(controlTripId: String?): TripSyncManifest? {
-    val normalizedJson = normalizeIncomingManifestJson(controlTripId)
-    return buildIncomingTripSyncManifest(
-        controlTripId = controlTripId,
-        tripIdValue = normalizedJson.opt("tripId"),
-        protocolVersionValue = normalizedJson.opt("protocolVersion"),
-        generatedAtValue = normalizedJson.opt("generatedAt"),
-        recordsValue = normalizedJson.opt("records")
+    return NearbySyncControlMessage(
+        type = type,
+        tripId = controlTripId ?: manifest?.tripId ?: "",
+        manifest = manifest
     )
 }
+
+internal fun serializeOutgoingControlPayload(
+    message: NearbySyncControlMessage,
+    controlPayloadAdapter: JsonAdapter<Map<String, Any?>>
+): String {
+    val payload = linkedMapOf<String, Any?>(
+        "type" to message.type,
+        "tripId" to message.tripId,
+        "manifest" to message.manifest?.toOutgoingControlPayloadMap()
+    )
+    return controlPayloadAdapter.toJson(payload)
+}
+
+private fun Map<*, *>.toIncomingTripSyncManifest(controlTripId: String?): TripSyncManifest? {
+    val tripIdValue = this["tripId"].normalizedSyncTripId() ?: controlTripId
+    return buildIncomingTripSyncManifest(
+        controlTripId = controlTripId,
+        tripIdValue = tripIdValue,
+        protocolVersionValue = this["protocolVersion"],
+        generatedAtValue = this["generatedAt"],
+        recordsValue = this["records"]
+    )
+}
+
+private fun TripSyncManifest.toOutgoingControlPayloadMap(): Map<String, Any?> = linkedMapOf(
+    "protocolVersion" to protocolVersion,
+    "tripId" to tripId,
+    "generatedAt" to generatedAt,
+    "records" to records.map(TripSyncRecord::toOutgoingControlPayloadMap)
+)
+
+private fun TripSyncRecord.toOutgoingControlPayloadMap(): Map<String, Any?> = linkedMapOf(
+    "entityType" to entityType.name,
+    "id" to id,
+    "updatedAt" to updatedAt,
+    "deletedAt" to deletedAt,
+    "lastModifiedByDeviceId" to lastModifiedByDeviceId,
+    "contentHash" to contentHash,
+    "sizeBytes" to sizeBytes
+)
 
 internal fun parseIncomingTripSyncBundle(
     payload: String,

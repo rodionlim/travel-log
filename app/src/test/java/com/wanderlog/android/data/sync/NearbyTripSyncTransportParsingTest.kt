@@ -6,7 +6,9 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.wanderlog.android.domain.model.sync.SyncEntityType
 import com.wanderlog.android.domain.model.sync.TripSyncBundle
 import com.wanderlog.android.domain.model.sync.TripSyncManifest
+import com.wanderlog.android.domain.model.sync.TripSyncRecord
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,6 +20,11 @@ class NearbyTripSyncTransportParsingTest {
         .adapter(TripSyncBundle::class.java)
 
     private val bundlePayloadAdapter = Moshi.Builder()
+      .addLast(KotlinJsonAdapterFactory())
+      .build()
+      .adapter<Map<String, Any?>>(Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java))
+
+    private val controlPayloadAdapter = Moshi.Builder()
       .addLast(KotlinJsonAdapterFactory())
       .build()
       .adapter<Map<String, Any?>>(Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java))
@@ -105,4 +112,42 @@ class NearbyTripSyncTransportParsingTest {
         assertEquals(TripSyncManifest.CURRENT_PROTOCOL_VERSION, bundle?.protocolVersion)
         assertEquals("trip-1", bundle?.trip?.id)
     }
+
+  @Test
+  fun `control payload round trip preserves manifest and records`() {
+    val manifest = TripSyncManifest(
+      protocolVersion = TripSyncManifest.CURRENT_PROTOCOL_VERSION,
+      tripId = "trip-1",
+      generatedAt = 456L,
+      records = listOf(
+        TripSyncRecord(
+          entityType = SyncEntityType.TRIP,
+          id = "trip-1",
+          updatedAt = 789L,
+          lastModifiedByDeviceId = "pixel7"
+        )
+      )
+    )
+
+    val payload = serializeOutgoingControlPayload(
+      message = NearbySyncControlMessage(
+        type = "manifest",
+        tripId = "trip-1",
+        manifest = manifest
+      ),
+      controlPayloadAdapter = controlPayloadAdapter
+    )
+
+    val parsed = parseIncomingControlPayload(
+      payload = payload,
+      controlPayloadAdapter = controlPayloadAdapter
+    )
+
+    assertNotNull(parsed)
+    assertEquals("manifest", parsed?.type)
+    assertEquals("trip-1", parsed?.tripId)
+    assertEquals(TripSyncManifest.CURRENT_PROTOCOL_VERSION, parsed?.manifest?.protocolVersion)
+    assertEquals(1, parsed?.manifest?.records?.size)
+    assertEquals(SyncEntityType.TRIP, parsed?.manifest?.records?.singleOrNull()?.entityType)
+  }
 }
