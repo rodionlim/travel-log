@@ -1,7 +1,9 @@
 package com.wanderlog.android.domain.model.sync
 
+import com.squareup.moshi.JsonClass
 import com.wanderlog.android.domain.model.TravellerProfile
 
+@JsonClass(generateAdapter = true)
 data class TripSyncBundle(
     val protocolVersion: Int = TripSyncManifest.CURRENT_PROTOCOL_VERSION,
     val generatedAt: Long,
@@ -31,12 +33,14 @@ data class TripSyncBundle(
     )
 }
 
+@JsonClass(generateAdapter = true)
 data class SyncMetadata(
     val updatedAt: Long,
     val deletedAt: Long? = null,
     val lastModifiedByDeviceId: String
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncTripPayload(
     val id: String,
     val name: String,
@@ -52,6 +56,7 @@ data class SyncTripPayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncTripDayPayload(
     val id: String,
     val tripId: String,
@@ -61,6 +66,7 @@ data class SyncTripDayPayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncItineraryItemPayload(
     val id: String,
     val tripDayId: String,
@@ -83,6 +89,7 @@ data class SyncItineraryItemPayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncItemAttachmentLinkPayload(
     val id: String,
     val tripId: String,
@@ -92,6 +99,7 @@ data class SyncItemAttachmentLinkPayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncExpensePayload(
     val id: String,
     val tripId: String,
@@ -105,6 +113,7 @@ data class SyncExpensePayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncPackingItemPayload(
     val id: String,
     val tripId: String,
@@ -117,6 +126,7 @@ data class SyncPackingItemPayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncTripNotePayload(
     val id: String,
     val tripId: String,
@@ -125,6 +135,7 @@ data class SyncTripNotePayload(
     val metadata: SyncMetadata
 )
 
+@JsonClass(generateAdapter = true)
 data class SyncAttachmentPayload(
     val id: String,
     val tripId: String,

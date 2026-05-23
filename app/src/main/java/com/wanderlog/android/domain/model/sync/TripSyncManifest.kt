@@ -1,5 +1,8 @@
 package com.wanderlog.android.domain.model.sync
 
+import com.squareup.moshi.JsonClass
+
+@JsonClass(generateAdapter = true)
 data class TripSyncManifest(
     val protocolVersion: Int = CURRENT_PROTOCOL_VERSION,
     val tripId: String,
@@ -11,6 +14,7 @@ data class TripSyncManifest(
     }
 }
 
+@JsonClass(generateAdapter = true)
 data class TripSyncRecord(
     val entityType: SyncEntityType,
     val id: String,
@@ -27,6 +31,7 @@ data class TripSyncRecord(
         get() = maxOf(updatedAt, deletedAt ?: Long.MIN_VALUE)
 }
 
+@JsonClass(generateAdapter = true)
 data class SyncRecordKey(
     val entityType: SyncEntityType,
     val id: String
