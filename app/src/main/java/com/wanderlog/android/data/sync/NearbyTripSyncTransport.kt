@@ -80,16 +80,22 @@ class NearbyTripSyncTransport @Inject constructor(
     @ApplicationContext private val context: Context,
     private val coordinator: TripSyncCoordinator,
     private val syncMetadataStamp: SyncMetadataStamp,
-    moshi: Moshi
+    private val moshi: Moshi
 ) {
 
-    private val connectionsClient: ConnectionsClient = Nearby.getConnectionsClient(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val controlAdapter = moshi.adapter(NearbySyncControlMessage::class.java)
-    private val bundleAdapter = moshi.adapter(TripSyncBundle::class.java)
-    private val bundlePayloadAdapter: JsonAdapter<Map<String, Any?>> = moshi.adapter(
-        Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
-    )
+    private val connectionsClient: ConnectionsClient by lazy(LazyThreadSafetyMode.NONE) {
+        Nearby.getConnectionsClient(context)
+    }
+    private val controlAdapter: JsonAdapter<NearbySyncControlMessage> by lazy(LazyThreadSafetyMode.NONE) {
+        moshi.adapter(NearbySyncControlMessage::class.java)
+    }
+    private val bundleAdapter: JsonAdapter<TripSyncBundle> by lazy(LazyThreadSafetyMode.NONE) {
+        moshi.adapter(TripSyncBundle::class.java)
+    }
+    private val bundlePayloadAdapter: JsonAdapter<Map<String, Any?>> by lazy(LazyThreadSafetyMode.NONE) {
+        moshi.adapter(Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java))
+    }
     private val discoveredPeers = linkedMapOf<String, NearbySyncPeer>()
     private val knownEndpointNames = mutableMapOf<String, String>()
     private val incomingFilePayloads = mutableMapOf<Long, Pair<String, Payload>>()
@@ -177,9 +183,11 @@ class NearbyTripSyncTransport @Inject constructor(
     }
 
     fun stop() {
-        connectionsClient.stopAdvertising()
-        connectionsClient.stopDiscovery()
-        connectionsClient.stopAllEndpoints()
+        runCatching {
+            connectionsClient.stopAdvertising()
+            connectionsClient.stopDiscovery()
+            connectionsClient.stopAllEndpoints()
+        }
         discoveredPeers.clear()
         knownEndpointNames.clear()
         incomingFilePayloads.values.forEach { (_, payload) ->
